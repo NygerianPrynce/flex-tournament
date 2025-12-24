@@ -76,7 +76,7 @@ export function TournamentBracket({ tournament: propTournament, viewerMode = fal
         });
         
         // Redistribute BYEs in the next round to prevent double byes
-        if (game.round < tournament.bracket.winners.length) {
+        if (tournament.bracket && game.round < tournament.bracket.winners.length) {
           const nextRoundIndex = game.round; // round 1 -> index 1 (round 2)
           autoAssignTeamsToBracket(nextRoundIndex);
         }
