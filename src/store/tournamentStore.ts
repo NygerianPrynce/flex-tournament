@@ -1271,21 +1271,21 @@ export const useTournamentStore = create<TournamentState>()(
             // BYE vs BYE - one BYE advances
             advancingByes.push(advancingByes.length);
           } else if (prevGame.teamA.type === 'BYE') {
-            if (prevGame.teamB.type === 'Team') {
+            if (prevGame.teamB.type === 'Team' && prevGame.teamB.teamId) {
               advancingTeams.push(prevGame.teamB.teamId);
             } else {
               advancingByes.push(advancingByes.length);
             }
           } else if (prevGame.teamB.type === 'BYE') {
-            if (prevGame.teamA.type === 'Team') {
+            if (prevGame.teamA.type === 'Team' && prevGame.teamA.teamId) {
               advancingTeams.push(prevGame.teamA.teamId);
             } else {
               advancingByes.push(advancingByes.length);
             }
-          } else if (prevGame.teamA.type === 'Team') {
+          } else if (prevGame.teamA.type === 'Team' && prevGame.teamA.teamId) {
             // Game not finished, use teamA as placeholder
             advancingTeams.push(prevGame.teamA.teamId);
-          } else if (prevGame.teamB.type === 'Team') {
+          } else if (prevGame.teamB.type === 'Team' && prevGame.teamB.teamId) {
             // Game not finished, use teamB as placeholder
             advancingTeams.push(prevGame.teamB.teamId);
           }
@@ -1294,7 +1294,6 @@ export const useTournamentStore = create<TournamentState>()(
         // Redistribute: pair teams with BYEs first, then create BYE vs BYE games if needed
         const numGames = targetRound.length;
         const totalSlots = numGames * 2;
-        const totalAdvancing = advancingTeams.length + advancingByes.length;
         
         // Create a distribution plan: teams first, then BYEs distributed evenly
         const slots: Array<{ type: 'Team' | 'BYE'; teamId?: string }> = [];
