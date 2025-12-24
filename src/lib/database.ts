@@ -404,7 +404,8 @@ export async function getGames(tournamentId: string): Promise<Game[]> {
 }
 
 export async function saveBracket(tournamentId: string, bracket: Bracket): Promise<void> {
-  // Delete existing games
+  // Delete existing games FIRST to prevent duplicates from concurrent operations
+  // Then insert all games in a single transaction
   const { error: deleteError } = await supabase
     .from('games')
     .delete()
@@ -513,7 +514,7 @@ function reconstructBracket(games: Game[]): Bracket {
   let grandFinal: Game | undefined;
 
   // Deduplicate games: keep only one game per round/matchNumber combination
-  // Use a Map to track seen games, keeping the most recently updated one
+  // Use a Map to track seen games, keeping the most recently updated one (by updated_at or id)
   const gameMap = new Map<string, Game>();
   
   games.forEach(game => {
@@ -521,9 +522,11 @@ function reconstructBracket(games: Game[]): Bracket {
     const existing = gameMap.get(key);
     
     // If we have a duplicate, prefer the one with more data (finished games, or later updated)
+    // Also prefer games with results over those without
     if (!existing || 
         (game.status === 'Finished' && existing.status !== 'Finished') ||
-        (game.result && !existing.result)) {
+        (game.result && !existing.result) ||
+        (game.id && existing.id && game.id > existing.id)) { // Use id as tiebreaker (UUIDs are sortable)
       gameMap.set(key, game);
     }
   });

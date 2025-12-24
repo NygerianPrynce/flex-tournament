@@ -4,7 +4,6 @@ import type { Tournament, Team, Ref, Court, Game, TournamentSettings, SeedingMod
 import { generateSingleEliminationBracket, generateDoubleEliminationBracket, advanceTeamInBracket } from '../lib/bracket';
 import { getSportConfig } from '../lib/sports';
 import { 
-  updateGame as updateGameInDB, 
   saveBracket, 
   addTeam as addTeamInDB, 
   updateTeam as updateTeamInDB, 
@@ -618,10 +617,11 @@ export const useTournamentStore = create<TournamentState>()(
           },
         });
         
-        // Sync to database if tournament has database ID (not just localStorage)
+        // Sync entire bracket to database (not individual game updates) to prevent duplicates
+        // Individual game updates can conflict with saveBracket calls
         if (tournament.id && !tournament.id.startsWith('tournament-')) {
-          updateGameInDB(gameId, updates).catch(err => {
-            console.error('Failed to sync game update to database:', err);
+          saveBracket(tournament.id, bracket).catch(err => {
+            console.error('Failed to sync bracket to database:', err);
             // Don't show error to user - local state is updated, sync will retry later
           });
         }
