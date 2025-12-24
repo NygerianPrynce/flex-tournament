@@ -414,7 +414,7 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
       onDragStart={viewerMode ? undefined : handleDragStart}
       onDragEnd={viewerMode ? undefined : handleDragEnd}
     >
-      <div className="p-4 md:p-6 lg:p-8">
+      <div className="p-3 sm:p-4 md:p-6 lg:p-8">
         {tournamentComplete && (
           <div className="mb-4 md:mb-6 p-3 md:p-4 bg-green-50 border border-green-200 rounded-lg">
             <div className="text-green-800 font-semibold text-base md:text-lg">
@@ -422,8 +422,8 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
             </div>
           </div>
         )}
-        <div className="mb-4 md:mb-6 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-          <h2 className="text-2xl md:text-3xl font-bold text-sport-orange">{venueTermPlural}</h2>
+        <div className="mb-3 sm:mb-4 md:mb-6 flex flex-col md:flex-row md:justify-between md:items-center gap-3 sm:gap-4">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-sport-orange">{venueTermPlural}</h2>
           {!viewerMode && (
             <div className="flex flex-wrap gap-1.5 md:gap-2">
               <button 
@@ -475,7 +475,7 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
           <div className="mb-4 md:mb-6">
             <h3 className="text-base md:text-lg font-semibold mb-2 md:mb-3">Available Games</h3>
             <SortableContext items={availableGames.map(g => g.id)}>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-2.5 md:gap-3">
                 {availableGames.map(game => (
                   <GamePoolItem key={game.id} game={game} teams={tournament.teams} tournament={tournament} viewerMode={viewerMode} />
                 ))}
@@ -485,7 +485,7 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
         )}
         
         {/* Courts */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
           {tournament.courts.map(court => {
             const game = getGameForCourt(court.id);
             const eligibleGames = editingCourt === court.id ? getEligibleGames(court.id) : [];

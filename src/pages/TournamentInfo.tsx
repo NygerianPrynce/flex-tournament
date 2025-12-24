@@ -274,9 +274,9 @@ export function TournamentInfo({ tournament: propTournament, viewerMode: _viewer
   };
   
   return (
-    <div className="p-8 bg-light-off-white min-h-screen">
+    <div className="p-3 sm:p-4 md:p-6 lg:p-8 bg-light-off-white min-h-screen overflow-x-hidden">
       <div className="max-w-4xl mx-auto">
-        <h2 className="text-4xl font-heading uppercase tracking-wide-heading text-accent-orange mb-8" style={{ fontStyle: 'oblique' }}>
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading uppercase tracking-wide-heading text-accent-orange mb-4 sm:mb-6 md:mb-8" style={{ fontStyle: 'oblique' }}>
           Tournament Info
         </h2>
         
@@ -345,7 +345,7 @@ export function TournamentInfo({ tournament: propTournament, viewerMode: _viewer
             <h3 className="text-xl font-heading uppercase tracking-wide-heading text-dark-charcoal mb-4 pb-2 border-b-2 border-accent-orange" style={{ fontStyle: 'oblique' }}>
               Tournament Information
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-gray-700">
               <div className="space-y-3">
                 <div>
                   <span className="text-sm text-gray-500 uppercase tracking-wide">Name</span>
@@ -488,7 +488,7 @@ export function TournamentInfo({ tournament: propTournament, viewerMode: _viewer
             <h3 className="text-xl font-heading uppercase tracking-wide-heading text-dark-charcoal mb-4 pb-2 border-b-2 border-accent-orange" style={{ fontStyle: 'oblique' }}>
               Game Settings
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-3">
                 <div>
                   <span className="text-sm text-gray-500 uppercase tracking-wide">Warmup Time</span>

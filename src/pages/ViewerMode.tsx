@@ -7,6 +7,7 @@ import { TournamentCourts } from './TournamentCourts';
 import { TournamentTeams } from './TournamentTeams';
 import { TournamentResults } from './TournamentResults';
 import { TournamentInfo } from './TournamentInfo';
+import { LandscapeOnly } from '../components/LandscapeOnly';
 
 export function ViewerMode() {
   const { code } = useParams<{ code: string }>();
@@ -61,16 +62,18 @@ export function ViewerMode() {
   // In a full implementation, you'd create a viewer store or context
 
   return (
-    <div className="flex min-h-screen">
-      <ViewerSidebar activeTab={activeTab} onTabChange={setActiveTab} tournamentName={tournament.name} />
-      <div className="flex-1 bg-light-off-white">
-        {activeTab === 'bracket' && <TournamentBracket tournament={tournament} viewerMode />}
-        {activeTab === 'courts' && <TournamentCourts tournament={tournament} viewerMode />}
-        {activeTab === 'teams' && <TournamentTeams tournament={tournament} viewerMode />}
-        {activeTab === 'results' && <TournamentResults tournament={tournament} viewerMode />}
-        {activeTab === 'info' && <TournamentInfo tournament={tournament} viewerMode />}
+    <LandscapeOnly>
+      <div className="flex min-h-screen overflow-x-hidden">
+        <ViewerSidebar activeTab={activeTab} onTabChange={setActiveTab} tournamentName={tournament.name} />
+        <div className="flex-1 bg-light-off-white overflow-x-hidden min-w-0">
+          {activeTab === 'bracket' && <TournamentBracket tournament={tournament} viewerMode />}
+          {activeTab === 'courts' && <TournamentCourts tournament={tournament} viewerMode />}
+          {activeTab === 'teams' && <TournamentTeams tournament={tournament} viewerMode />}
+          {activeTab === 'results' && <TournamentResults tournament={tournament} viewerMode />}
+          {activeTab === 'info' && <TournamentInfo tournament={tournament} viewerMode />}
+        </div>
       </div>
-    </div>
+    </LandscapeOnly>
   );
 }
 
@@ -84,14 +87,14 @@ function ViewerSidebar({
   tournamentName: string;
 }) {
   return (
-    <div className="w-64 bg-light-off-white shadow-lg min-h-screen p-6 border-r-2 border-light-warm-gray">
-      <div className="mb-8">
-        <h1 className="text-2xl font-heading uppercase tracking-wide-heading text-accent-orange" style={{ fontStyle: 'oblique' }}>
+    <div className="w-40 sm:w-48 md:w-56 lg:w-64 bg-light-off-white shadow-lg min-h-screen p-3 sm:p-4 md:p-6 border-r-2 border-light-warm-gray">
+      <div className="mb-4 sm:mb-6 md:mb-8">
+        <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-heading uppercase tracking-wide-heading text-accent-orange" style={{ fontStyle: 'oblique' }}>
           bracketooski
         </h1>
         <div className="divider-orange mt-2"></div>
-        <p className="text-sm text-dark-charcoal mt-4">{tournamentName}</p>
-        <p className="text-xs text-gray-500 mt-2">Viewer Mode</p>
+        <p className="text-xs sm:text-sm text-dark-charcoal mt-2 sm:mt-4 line-clamp-2">{tournamentName}</p>
+        <p className="text-xs text-gray-500 mt-1 sm:mt-2">Viewer Mode</p>
       </div>
       
       <nav className="space-y-1">
@@ -105,7 +108,7 @@ function ViewerSidebar({
           <button
             key={item.id}
             onClick={() => onTabChange(item.id as any)}
-            className={`w-full text-left flex items-center space-x-3 px-4 py-3 transition-all duration-200 ${
+            className={`w-full text-left flex items-center space-x-2 sm:space-x-3 px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 transition-all duration-200 text-xs sm:text-sm md:text-base ${
               activeTab === item.id
                 ? 'bg-accent-orange text-dark-near-black font-heading uppercase tracking-wide-heading'
                 : 'text-dark-charcoal hover:text-accent-orange hover:bg-light-warm-gray font-body'

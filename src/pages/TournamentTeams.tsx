@@ -65,10 +65,10 @@ export function TournamentTeams({ tournament: propTournament, viewerMode = false
   };
   
   return (
-    <div className="p-8">
-      <h2 className="text-3xl font-bold text-sport-orange mb-6">Teams</h2>
+    <div className="p-3 sm:p-4 md:p-6 lg:p-8">
+      <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-sport-orange mb-4 sm:mb-5 md:mb-6">Teams</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {tournament.teams.map(team => (
           <div key={team.id} className="card">
             {!viewerMode && editingTeam === team.id ? (

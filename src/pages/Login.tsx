@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { DesktopOnly } from '../components/DesktopOnly';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -55,76 +56,78 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-light-off-white flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
-        <h1 className="text-3xl font-heading uppercase tracking-wide-heading text-accent-orange mb-6 text-center" style={{ fontStyle: 'oblique' }}>
-          bracketooski
-        </h1>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-dark-charcoal mb-2">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-2 border-2 border-dark-charcoal rounded focus:outline-none focus:ring-2 focus:ring-accent-orange"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-dark-charcoal mb-2">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              className="w-full px-4 py-2 border-2 border-dark-charcoal rounded focus:outline-none focus:ring-2 focus:ring-accent-orange"
-            />
-          </div>
-
-          {error && (
-            <div className="bg-red-50 border-2 border-red-500 text-red-700 px-4 py-3 rounded">
-              {error}
+    <DesktopOnly>
+      <div className="min-h-screen bg-light-off-white flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+          <h1 className="text-3xl font-heading uppercase tracking-wide-heading text-accent-orange mb-6 text-center" style={{ fontStyle: 'oblique' }}>
+            bracketooski
+          </h1>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-dark-charcoal mb-2">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full px-4 py-2 border-2 border-dark-charcoal rounded focus:outline-none focus:ring-2 focus:ring-accent-orange"
+              />
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full btn-primary py-3 disabled:opacity-50"
-          >
-            {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
-          </button>
-        </form>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-dark-charcoal mb-2">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                className="w-full px-4 py-2 border-2 border-dark-charcoal rounded focus:outline-none focus:ring-2 focus:ring-accent-orange"
+              />
+            </div>
 
-        <div className="mt-4 text-center space-y-2">
-          <button
-            type="button"
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-accent-orange hover:underline"
-          >
-            {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-          </button>
-          <div>
-            <Link
-              to="/"
-              className="text-dark-charcoal hover:text-accent-orange hover:underline text-sm"
+            {error && (
+              <div className="bg-red-50 border-2 border-red-500 text-red-700 px-4 py-3 rounded">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full btn-primary py-3 disabled:opacity-50"
             >
-              ← Take me back
-            </Link>
+              {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
+            </button>
+          </form>
+
+          <div className="mt-4 text-center space-y-2">
+            <button
+              type="button"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-accent-orange hover:underline"
+            >
+              {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+            </button>
+            <div>
+              <Link
+                to="/"
+                className="text-dark-charcoal hover:text-accent-orange hover:underline text-sm"
+              >
+                ← Take me back
+              </Link>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </DesktopOnly>
   );
 }
 

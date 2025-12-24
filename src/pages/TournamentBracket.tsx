@@ -85,15 +85,15 @@ export function TournamentBracket({ tournament: propTournament, viewerMode = fal
   }, [tournament?.bracket, updateGame, autoAssignTeamsToBracket]);
   
   if (!tournament) {
-    return <div className="p-8">No tournament loaded</div>;
+    return <div className="p-3 sm:p-4 md:p-6 lg:p-8">No tournament loaded</div>;
   }
   
   if (!tournament.bracket) {
     // In viewer mode, don't show bracket generation buttons
     if (viewerMode) {
       return (
-        <div className="p-8">
-          <h2 className="text-3xl font-bold text-sport-orange mb-6">Bracket</h2>
+        <div className="p-3 sm:p-4 md:p-6 lg:p-8 overflow-x-hidden">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-sport-orange mb-4 sm:mb-5 md:mb-6">Bracket</h2>
           <div className="card max-w-2xl mx-auto">
             <p className="text-gray-600 text-center py-8">
               Bracket has not been generated yet.
@@ -105,8 +105,8 @@ export function TournamentBracket({ tournament: propTournament, viewerMode = fal
     
     // Normal mode - show bracket generation buttons
     return (
-      <div className="p-8">
-        <h2 className="text-3xl font-bold text-sport-orange mb-6">Bracket</h2>
+      <div className="p-3 sm:p-4 md:p-6 lg:p-8 overflow-x-hidden">
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-sport-orange mb-4 sm:mb-5 md:mb-6">Bracket</h2>
         <div className="card max-w-2xl mx-auto">
           <h3 className="text-xl font-semibold mb-4">Generate Bracket</h3>
           <p className="text-gray-600 mb-6">
@@ -1472,8 +1472,8 @@ const renderEditorView = () => {
   };
               
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-3 sm:p-4 md:p-6 lg:p-8 overflow-x-hidden">
+      <div className="flex items-center justify-between mb-4 sm:mb-6 md:mb-8">
               <div>
           <h2
             className="text-4xl font-heading uppercase tracking-wide-heading text-accent-orange mb-2"

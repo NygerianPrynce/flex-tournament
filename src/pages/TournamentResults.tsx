@@ -212,8 +212,8 @@ export function TournamentResults({ tournament: propTournament, viewerMode: _vie
   const tournamentComplete = isTournamentComplete();
   
   return (
-    <div className="p-8">
-      <h2 className="text-3xl font-bold text-sport-orange mb-6">Results</h2>
+    <div className="p-3 sm:p-4 md:p-6 lg:p-8 overflow-x-hidden">
+      <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-sport-orange mb-4 sm:mb-5 md:mb-6">Results</h2>
       
       {tournamentComplete && champion && (
         <div className="mb-8 bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-400 rounded-xl p-6 shadow-lg">

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import ReactFlow, { Background, Controls, Handle, Position } from 'reactflow';
 import type { Node, Edge, NodeProps } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -109,7 +109,7 @@ const CompactGameCard: React.FC<NodeProps<GameNodeData>> = ({ data }) => {
       {/* Compact Game Card */}
       <div
         className={`
-          w-48 bg-white rounded border-2 shadow-sm
+          w-40 sm:w-44 md:w-48 bg-white rounded border-2 shadow-sm
           ${isLive ? 'border-green-500 shadow-green-200' : 'border-gray-300'}
           ${isGrandFinal ? 'border-orange-400 bg-orange-50' : ''}
         `}
@@ -117,7 +117,7 @@ const CompactGameCard: React.FC<NodeProps<GameNodeData>> = ({ data }) => {
         {/* Team A */}
         <div
           className={`
-            px-3 py-1.5 border-b flex items-center justify-between
+            px-2 sm:px-3 py-1 sm:py-1.5 border-b flex items-center justify-between
             ${teamAWon ? 'bg-green-50 border-green-300 font-semibold' : 'border-gray-200'}
           `}
         >
@@ -131,12 +131,12 @@ const CompactGameCard: React.FC<NodeProps<GameNodeData>> = ({ data }) => {
             {teamAName}
           </span>
           {isFinished && game.result && (
-            <span
-              className={`
-                ml-2 text-xs font-bold
+              <span
+                className={`
+                ml-1 sm:ml-2 text-xs font-bold flex-shrink-0
                 ${teamAWon ? 'text-green-700' : 'text-gray-500'}
               `}
-            >
+              >
               {game.result.scoreA}
             </span>
           )}
@@ -145,7 +145,7 @@ const CompactGameCard: React.FC<NodeProps<GameNodeData>> = ({ data }) => {
         {/* Team B */}
         <div
           className={`
-            px-3 py-1.5 flex items-center justify-between
+            px-2 sm:px-3 py-1 sm:py-1.5 flex items-center justify-between
             ${teamBWon ? 'bg-green-50 border-t border-green-300 font-semibold' : ''}
           `}
         >
@@ -159,12 +159,12 @@ const CompactGameCard: React.FC<NodeProps<GameNodeData>> = ({ data }) => {
             {teamBName}
           </span>
           {isFinished && game.result && (
-            <span
-              className={`
-                ml-2 text-xs font-bold
+              <span
+                className={`
+                ml-1 sm:ml-2 text-xs font-bold flex-shrink-0
                 ${teamBWon ? 'text-green-700' : 'text-gray-500'}
               `}
-            >
+              >
               {game.result.scoreB}
             </span>
           )}
@@ -191,7 +191,7 @@ const nodeTypes = {
 };
 
 // Transform tournament data to fixed-position React Flow nodes
-const transformToFixedLayout = (tournament: Tournament) => {
+const transformToFixedLayout = (tournament: Tournament, viewportWidth?: number) => {
   const nodes: Node<GameNodeData | RoundLabelData>[] = [];
   const edges: Edge[] = [];
 
@@ -200,8 +200,11 @@ const transformToFixedLayout = (tournament: Tournament) => {
   }
 
   const bracket = tournament.bracket;
-  const roundWidth = 280; // Horizontal spacing between rounds
-  const gameHeight = 70; // Vertical spacing for games
+  // Responsive round width: smaller on mobile landscape, larger on desktop
+  // Mobile landscape typically 667-926px width, so scale accordingly
+  const baseRoundWidth = viewportWidth && viewportWidth < 900 ? 180 : viewportWidth && viewportWidth < 1200 ? 220 : 280;
+  const roundWidth = baseRoundWidth;
+  const gameHeight = viewportWidth && viewportWidth < 900 ? 60 : 70; // Vertical spacing for games
 
   // WINNERS BRACKET (TOP)
   const winnersRounds = bracket.winners;
@@ -459,10 +462,20 @@ export const ReactFlowTournamentBracket: React.FC<{ tournament: Tournament }> = 
   tournament,
 }) => {
   const hasBracket = !!tournament.bracket;
+  const [viewportWidth, setViewportWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setViewportWidth(window.innerWidth);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const { nodes, edges, bounds } = useMemo(
-    () => (hasBracket ? transformToFixedLayout(tournament) : { nodes: [], edges: [], bounds: null }),
-    [hasBracket, tournament]
+    () => (hasBracket ? transformToFixedLayout(tournament, viewportWidth) : { nodes: [], edges: [], bounds: null }),
+    [hasBracket, tournament, viewportWidth]
   );
 
   if (!hasBracket) {
@@ -482,7 +495,7 @@ export const ReactFlowTournamentBracket: React.FC<{ tournament: Tournament }> = 
     : undefined;
 
   return (
-    <div className="w-full h-[700px] bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl overflow-hidden relative">
+    <div className="w-full h-[500px] sm:h-[600px] md:h-[700px] bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl overflow-hidden relative">
       {/* React Flow */}
       <div className="w-full h-full pt-4">
         <ReactFlow
