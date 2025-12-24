@@ -260,6 +260,30 @@ export const useTournamentStore = create<TournamentState>()(
           }
         }
         
+        // Redistribute BYEs in all rounds to prevent double byes (only for auto-generated brackets)
+        if (autoGenerate && bracket.winners.length > 1) {
+          // Redistribute BYEs in rounds 2 and beyond
+          // We need to do this after setting the bracket so autoAssignTeamsToBracket can access it
+          set({
+            tournament: {
+              ...tournament,
+              bracket,
+              updatedAt: Date.now(),
+            },
+          });
+          
+          // Now redistribute BYEs in subsequent rounds
+          for (let roundIndex = 1; roundIndex < bracket.winners.length; roundIndex++) {
+            get().autoAssignTeamsToBracket(roundIndex);
+          }
+          
+          // Get updated bracket after redistribution
+          const updatedTournament = get().tournament;
+          if (updatedTournament?.bracket) {
+            bracket = updatedTournament.bracket;
+          }
+        }
+        
         set({
           tournament: {
             ...tournament,
@@ -1291,32 +1315,59 @@ export const useTournamentStore = create<TournamentState>()(
           }
         });
         
-        // Redistribute: pair teams with BYEs first, then create BYE vs BYE games if needed
+        // Redistribute: pair teams with BYEs evenly to prevent double byes
         const numGames = targetRound.length;
         const totalSlots = numGames * 2;
+        const totalAdvancing = advancingTeams.length + advancingByes.length;
         
-        // Create a distribution plan: teams first, then BYEs distributed evenly
+        // Create a distribution plan: interleave teams and BYEs evenly
+        // Strategy: Distribute BYEs so we get Team vs BYE pairings when possible
+        // Only create BYE vs BYE games when we have excess BYEs
         const slots: Array<{ type: 'Team' | 'BYE'; teamId?: string }> = [];
         
-        // Fill with teams first
-        for (let i = 0; i < advancingTeams.length && slots.length < totalSlots; i++) {
-          slots.push({ type: 'Team', teamId: advancingTeams[i] });
-        }
+        let teamIdx = 0;
+        let byeIdx = 0;
         
-        // Distribute BYEs evenly across remaining slots
-        // Strategy: spread BYEs out so we get Team vs BYE pairings, and BYE vs BYE if needed
-        let byeIndex = 0;
-        while (slots.length < totalSlots && byeIndex < advancingByes.length) {
-          slots.push({ type: 'BYE' });
-          byeIndex++;
-        }
-        
-        // Fill remaining slots with OPEN if needed (shouldn't happen, but safety)
-        while (slots.length < totalSlots) {
-          slots.push({ type: 'Team' }); // Will be OPEN in practice
+        // Interleave teams and BYEs to distribute BYEs evenly
+        // Calculate spacing: if we have 5 teams and 3 BYEs, we want spacing like:
+        // Team, Team, BYE, Team, BYE, Team, BYE, Team
+        // This creates: (Team vs Team), (BYE vs Team), (BYE vs Team), (BYE vs Team)
+        for (let i = 0; i < totalSlots && (teamIdx < advancingTeams.length || byeIdx < advancingByes.length); i++) {
+          // Calculate ideal distribution: spread BYEs evenly among teams
+          const teamsRemaining = advancingTeams.length - teamIdx;
+          const byesRemaining = advancingByes.length - byeIdx;
+          const slotsRemaining = totalSlots - i;
+          
+          // Decide whether to place a team or BYE
+          // Prefer placing a team if we have more teams than BYEs, or if we're running out of slots
+          if (teamIdx < advancingTeams.length && byeIdx < advancingByes.length) {
+            // We have both - decide based on even distribution
+            // Calculate how many BYEs should come before this position
+            const idealByesBefore = Math.floor((i * advancingByes.length) / totalAdvancing);
+            const actualByesBefore = byeIdx;
+            
+            if (actualByesBefore < idealByesBefore) {
+              // Place a BYE to catch up to ideal distribution
+              slots.push({ type: 'BYE' });
+              byeIdx++;
+            } else {
+              // Place a team
+              slots.push({ type: 'Team', teamId: advancingTeams[teamIdx] });
+              teamIdx++;
+            }
+          } else if (teamIdx < advancingTeams.length) {
+            // Only teams left
+            slots.push({ type: 'Team', teamId: advancingTeams[teamIdx] });
+            teamIdx++;
+          } else if (byeIdx < advancingByes.length) {
+            // Only BYEs left
+            slots.push({ type: 'BYE' });
+            byeIdx++;
+          }
         }
         
         // Now assign to games, redistributing BYEs evenly
+        // This redistributes ALL slots (including already-placed BYEs) to prevent double byes
         targetRound.forEach((nextGame, nextGameIndex) => {
           const slotAIndex = nextGameIndex * 2;
           const slotBIndex = nextGameIndex * 2 + 1;
@@ -1324,7 +1375,8 @@ export const useTournamentStore = create<TournamentState>()(
           const slotA = slots[slotAIndex];
           const slotB = slots[slotBIndex];
           
-          if (nextGame.teamA.type === 'OPEN' && slotA) {
+          // Always redistribute slot A (even if already assigned) to prevent double byes
+          if (slotA) {
             if (slotA.type === 'BYE') {
               get().updateGameSlot(nextGame.id, 'A', { type: 'BYE' });
             } else if (slotA.type === 'Team' && slotA.teamId) {
@@ -1332,7 +1384,8 @@ export const useTournamentStore = create<TournamentState>()(
             }
           }
           
-          if (nextGame.teamB.type === 'OPEN' && slotB) {
+          // Always redistribute slot B (even if already assigned) to prevent double byes
+          if (slotB) {
             if (slotB.type === 'BYE') {
               get().updateGameSlot(nextGame.id, 'B', { type: 'BYE' });
             } else if (slotB.type === 'Team' && slotB.teamId) {
