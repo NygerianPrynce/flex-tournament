@@ -1,0 +1,212 @@
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-light-off-white text-dark-near-black font-body;
+    line-height: 1.6;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading uppercase tracking-wide-heading;
+    font-style: oblique;
+    letter-spacing: 0.15em;
+  }
+}
+
+@layer components {
+  /* Skewed/Parallelogram Buttons */
+  .btn-skew {
+    @apply relative inline-block px-2 py-1 text-xs font-heading uppercase;
+    transform: skewX(-6deg);
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    letter-spacing: 0.025em;
+  }
+  
+  .btn-skew > * {
+    transform: skewX(6deg);
+    display: inline-block;
+  }
+  
+  .btn-primary {
+    @apply btn-skew bg-accent-orange text-dark-near-black font-semibold border-2;
+    border: 2px solid #060403 !important;
+  }
+  
+  .btn-primary:hover {
+    @apply bg-white text-accent-orange;
+    border: 2px solid #060403 !important;
+    box-shadow: 0 0 0 2px #060403;
+  }
+  
+  .btn-secondary {
+    @apply btn-skew bg-white text-accent-orange border-2;
+    border: 2px solid #060403 !important;
+  }
+  
+  .btn-secondary:hover {
+    @apply bg-accent-orange text-dark-near-black;
+    border: 2px solid #060403 !important;
+  }
+  
+  /* Cards with clipped corners */
+  .card {
+    @apply bg-white shadow-lg p-4 md:p-6;
+    border-radius: 0;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+    position: relative;
+    min-width: 0; /* Prevent flex items from overflowing */
+  }
+  
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, #DE5A26 0%, transparent 100%);
+  }
+  
+  /* Diagonal Section Edges */
+  .section-diagonal {
+    position: relative;
+    clip-path: polygon(0 3%, 100% 0, 100% 97%, 0 100%);
+  }
+  
+  .section-diagonal-reverse {
+    position: relative;
+    clip-path: polygon(0 0, 100% 3%, 100% 100%, 0 97%);
+  }
+  
+  /* Texture Overlay for Dark Sections */
+  .texture-halftone {
+    position: relative;
+  }
+  
+  .texture-halftone::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      radial-gradient(circle at 1px 1px, rgba(222, 90, 38, 0.08) 1px, transparent 0);
+    background-size: 20px 20px;
+    pointer-events: none;
+    opacity: 0.5;
+  }
+  
+  /* Micro Labels with Orange Dividers */
+  .micro-label {
+    @apply text-xs uppercase tracking-extra-wide text-accent-orange font-heading;
+    position: relative;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+  
+  .micro-label::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 40px;
+    height: 2px;
+    background: #DE5A26;
+  }
+  
+  /* Tabs/Pills */
+  .tab-active {
+    @apply bg-accent-orange text-dark-near-black font-heading uppercase tracking-wide-heading px-4 py-2;
+    transform: skewX(-3deg);
+  }
+  
+  .tab-active > * {
+    transform: skewX(3deg);
+  }
+  
+  .tab-inactive {
+    @apply bg-transparent border-2 border-dark-charcoal text-dark-charcoal font-heading uppercase tracking-wide-heading px-4 py-2;
+    transform: skewX(-3deg);
+  }
+  
+  .tab-inactive > * {
+    transform: skewX(3deg);
+  }
+  
+  .tab-inactive:hover {
+    @apply border-accent-orange text-accent-orange;
+  }
+  
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 text-xs font-heading uppercase tracking-wide-heading;
+    border-radius: 0;
+    clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+  }
+  
+  /* Orange Accent Dividers */
+  .divider-orange {
+    @apply h-0.5 bg-accent-orange;
+    width: 60px;
+    margin: 16px 0;
+  }
+
+  /* Basketball court visual */
+  .court-visual-basketball {
+    position: relative;
+    border-radius: 1rem;
+    overflow: hidden;
+    background: linear-gradient(90deg, #c78f5a 0%, #e1b07a 50%, #c78f5a 100%);
+    box-shadow: inset 0 0 0 4px rgba(250, 249, 249, 0.85);
+  }
+
+  .court-visual-basketball::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    background-color: rgba(250, 249, 249, 0.85);
+    transform: translateX(-50%);
+    z-index: 1;
+  }
+
+  .court-visual-basketball::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 2px solid rgba(250, 249, 249, 0.8);
+    transform: translate(-50%, -50%);
+    z-index: 1;
+  }
+}
+
+@layer utilities {
+  /* Text shadow for dark sections */
+  .text-glow-orange {
+    text-shadow: 0 0 10px rgba(222, 90, 38, 0.3);
+  }
+  
+  /* Subtle background text */
+  .bg-text {
+    @apply absolute inset-0 flex items-center justify-center;
+    font-size: 12rem;
+    font-weight: 700;
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 0;
+  }
+}
