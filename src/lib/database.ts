@@ -512,11 +512,30 @@ export async function updateGame(gameId: string, updates: Partial<Game>): Promis
 function reconstructBracket(games: Game[]): Bracket {
   let grandFinal: Game | undefined;
 
+  // Deduplicate games: keep only one game per round/matchNumber combination
+  // Use a Map to track seen games, keeping the most recently updated one
+  const gameMap = new Map<string, Game>();
+  
+  games.forEach(game => {
+    const key = `${game.bracketType}-${game.round}-${game.matchNumber}`;
+    const existing = gameMap.get(key);
+    
+    // If we have a duplicate, prefer the one with more data (finished games, or later updated)
+    if (!existing || 
+        (game.status === 'Finished' && existing.status !== 'Finished') ||
+        (game.result && !existing.result)) {
+      gameMap.set(key, game);
+    }
+  });
+  
+  // Convert back to array
+  const deduplicatedGames = Array.from(gameMap.values());
+
   // Group games by bracket type and round
   const winnersByRound: Record<number, Game[]> = {};
   const losersByRound: Record<number, Game[]> = {};
 
-  games.forEach(game => {
+  deduplicatedGames.forEach(game => {
     if (game.bracketType === 'Final') {
       grandFinal = game;
     } else if (game.bracketType === 'W') {
