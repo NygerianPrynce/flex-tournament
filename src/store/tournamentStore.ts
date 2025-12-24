@@ -1334,10 +1334,6 @@ export const useTournamentStore = create<TournamentState>()(
         // This creates: (Team vs Team), (BYE vs Team), (BYE vs Team), (BYE vs Team)
         for (let i = 0; i < totalSlots && (teamIdx < advancingTeams.length || byeIdx < advancingByes.length); i++) {
           // Calculate ideal distribution: spread BYEs evenly among teams
-          const teamsRemaining = advancingTeams.length - teamIdx;
-          const byesRemaining = advancingByes.length - byeIdx;
-          const slotsRemaining = totalSlots - i;
-          
           // Decide whether to place a team or BYE
           // Prefer placing a team if we have more teams than BYEs, or if we're running out of slots
           if (teamIdx < advancingTeams.length && byeIdx < advancingByes.length) {
