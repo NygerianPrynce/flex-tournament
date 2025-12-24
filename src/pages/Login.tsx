@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 export function Login() {
@@ -106,7 +106,7 @@ export function Login() {
           </button>
         </form>
 
-        <div className="mt-4 text-center">
+        <div className="mt-4 text-center space-y-2">
           <button
             type="button"
             onClick={() => setIsSignUp(!isSignUp)}
@@ -114,6 +114,14 @@ export function Login() {
           >
             {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
           </button>
+          <div>
+            <Link
+              to="/"
+              className="text-dark-charcoal hover:text-accent-orange hover:underline text-sm"
+            >
+              ← Take me back
+            </Link>
+          </div>
         </div>
       </div>
     </div>

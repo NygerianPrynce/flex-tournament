@@ -69,7 +69,7 @@ export async function createTournament(
         refs.map(ref => ({
           tournament_id: tournamentId,
           name: ref.name,
-          is_paused: !ref.available,
+          is_paused: !(ref.available !== false), // Default to available (true) if undefined
         }))
       );
 
@@ -173,6 +173,33 @@ export async function updateTournament(
 
   if (error) {
     throw new Error(`Failed to update tournament: ${error.message}`);
+  }
+}
+
+export async function deleteTournament(tournamentId: string, userId: string): Promise<void> {
+  // Verify ownership first
+  const { data: tournament, error: checkError } = await supabase
+    .from('tournaments')
+    .select('user_id')
+    .eq('id', tournamentId)
+    .single();
+
+  if (checkError || !tournament) {
+    throw new Error('Tournament not found');
+  }
+
+  if (tournament.user_id !== userId) {
+    throw new Error('Unauthorized: You can only delete your own tournaments');
+  }
+
+  // Delete tournament (cascade will handle related records)
+  const { error } = await supabase
+    .from('tournaments')
+    .delete()
+    .eq('id', tournamentId);
+
+  if (error) {
+    throw new Error(`Failed to delete tournament: ${error.message}`);
   }
 }
 
@@ -287,7 +314,7 @@ export async function addRef(tournamentId: string, ref: Omit<Ref, 'id'>): Promis
     .insert({
       tournament_id: tournamentId,
       name: ref.name,
-      is_paused: !ref.available,
+      is_paused: !(ref.available !== false), // Default to available (true) if undefined
     })
     .select()
     .single();

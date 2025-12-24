@@ -51,17 +51,9 @@ export function ViewerMode() {
   }
 
   if (error || !tournament) {
-    return (
-      <div className="min-h-screen bg-light-off-white flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-heading text-accent-orange mb-4">Tournament Not Found</h1>
-          <p className="text-dark-charcoal mb-4">{error || 'The tournament you are looking for does not exist.'}</p>
-          <button onClick={() => navigate('/')} className="btn-primary">
-            Go Home
-          </button>
-        </div>
-      </div>
-    );
+    // Redirect to tournament not available page
+    navigate('/tournament-not-available', { replace: true });
+    return null;
   }
 
   // Create a viewer-specific store context

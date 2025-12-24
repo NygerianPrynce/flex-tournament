@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { getUserTournaments } from '../lib/database';
+import { getUserTournaments, deleteTournament } from '../lib/database';
 import type { Tournament } from '../types';
 
 export function TournamentList() {
@@ -48,7 +48,7 @@ export function TournamentList() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    navigate('/login');
+    navigate('/');
   };
 
   const handleCreateTournament = () => {
@@ -57,6 +57,25 @@ export function TournamentList() {
 
   const handleSelectTournament = (tournamentId: string) => {
     navigate(`/tournament/bracket`, { state: { tournamentId } });
+  };
+
+  const handleDeleteTournament = async (e: React.MouseEvent, tournamentId: string, tournamentName: string) => {
+    e.stopPropagation(); // Prevent card click
+    
+    if (!confirm(`Are you sure you want to delete "${tournamentName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    if (!user) return;
+
+    try {
+      await deleteTournament(tournamentId, user.id);
+      // Reload tournaments
+      await loadTournaments(user.id);
+    } catch (error) {
+      console.error('Failed to delete tournament:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete tournament');
+    }
   };
 
   if (loading) {
@@ -100,19 +119,31 @@ export function TournamentList() {
             {tournaments.map((tournament) => (
               <div
                 key={tournament.id}
-                onClick={() => handleSelectTournament(tournament.id)}
-                className="bg-white rounded-lg shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow"
+                className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow relative"
               >
-                <h2 className="text-2xl font-heading uppercase tracking-wide-heading text-accent-orange mb-2" style={{ fontStyle: 'oblique' }}>
-                  {tournament.name}
-                </h2>
-                <p className="text-sm text-dark-charcoal mb-4">
-                  Created: {new Date(tournament.createdAt).toLocaleDateString()}
-                </p>
-                <div className="text-sm text-dark-charcoal">
-                  <p>Teams: {tournament.teams.length}</p>
-                  <p>Courts: {tournament.courts.length}</p>
+                <div
+                  onClick={() => handleSelectTournament(tournament.id)}
+                  className="cursor-pointer"
+                >
+                  <h2 className="text-2xl font-heading uppercase tracking-wide-heading text-accent-orange mb-2" style={{ fontStyle: 'oblique' }}>
+                    {tournament.name}
+                  </h2>
+                  <p className="text-sm text-dark-charcoal mb-4">
+                    Created: {new Date(tournament.createdAt).toLocaleDateString()}
+                  </p>
+                  <div className="text-sm text-dark-charcoal">
+                    <p>Teams: {tournament.teams.length}</p>
+                    <p>Courts: {tournament.courts.length}</p>
+                  </div>
                 </div>
+                <button
+                  onClick={(e) => handleDeleteTournament(e, tournament.id, tournament.name)}
+                  className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full font-bold text-2xl leading-none transition-colors"
+                  title="Delete tournament"
+                  aria-label="Delete tournament"
+                >
+                  ×
+                </button>
               </div>
             ))}
           </div>

@@ -13,6 +13,7 @@ import { TournamentSettings } from './pages/TournamentSettings';
 import { TournamentInfo } from './pages/TournamentInfo';
 import { TournamentResults } from './pages/TournamentResults';
 import { ViewerMode } from './pages/ViewerMode';
+import { TournamentNotAvailable } from './pages/TournamentNotAvailable';
 import { useTournamentStore } from './store/tournamentStore';
 import { getTournament } from './lib/database';
 
@@ -81,6 +82,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/tournaments" element={<TournamentList />} />
         <Route path="/view/:code" element={<ViewerMode />} />
+        <Route path="/tournament-not-available" element={<TournamentNotAvailable />} />
         <Route path="/setup" element={<Setup />} />
         <Route
           path="/tournament"

@@ -209,7 +209,7 @@ export function Setup() {
       }
       
       if (newTeams.length > 0) {
-        setTeams([...teams, ...newTeams]);
+      setTeams([...teams, ...newTeams]);
       } else if (duplicates.length === 0) {
         alert('No valid teams found in file');
       }
@@ -275,6 +275,7 @@ export function Setup() {
           newRefs.push({
             id: `ref-${Date.now()}-${Math.random()}`,
             name,
+            available: true,
           });
         }
       }
@@ -284,7 +285,7 @@ export function Setup() {
       alert('Error parsing file: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
-
+  
   const handleBulkRefInput = () => {
     if (!bulkRefInput.trim()) return;
 
@@ -302,6 +303,7 @@ export function Setup() {
     const newRefs: Ref[] = names.map(name => ({
       id: `ref-${Date.now()}-${Math.random()}`,
       name,
+      available: true,
     }));
 
     setRefs([...refs, ...newRefs]);
@@ -831,10 +833,10 @@ export function Setup() {
                     if (val !== '') {
                       const num = parseInt(val) || 1;
                       const sportConfig = getSportConfig(sport);
-                      const newCourtNames = Array.from({ length: num }, (_, i) =>
+                    const newCourtNames = Array.from({ length: num }, (_, i) =>
                         settings.courtNames[i] || `${sportConfig.venueTerm} ${i + 1}`
-                      );
-                      setSettings({ ...settings, numberOfCourts: num, courtNames: newCourtNames });
+                    );
+                    setSettings({ ...settings, numberOfCourts: num, courtNames: newCourtNames });
                     }
                   }}
                   onBlur={(e) => {
