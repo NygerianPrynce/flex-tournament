@@ -210,6 +210,52 @@ export function generateSingleEliminationBracket(
   let roundNumber = 1;
   
   while (currentRoundSlots.length > 1) {
+    // For first round, redistribute BYEs to prevent BYE vs BYE games
+    if (roundNumber === 1 && settings.openSlotPolicy === 'BYE') {
+      // Separate teams and BYEs
+      const teams: GameSlot[] = [];
+      const byes: GameSlot[] = [];
+      
+      currentRoundSlots.forEach(slot => {
+        if (slot.type === 'Team') {
+          teams.push(slot);
+        } else if (slot.type === 'BYE') {
+          byes.push(slot);
+        }
+      });
+      
+      // Redistribute: interleave teams and BYEs evenly
+      const redistributed: GameSlot[] = [];
+      let teamIdx = 0;
+      let byeIdx = 0;
+      const totalSlots = teams.length + byes.length;
+      
+      for (let i = 0; i < totalSlots && (teamIdx < teams.length || byeIdx < byes.length); i++) {
+        // Calculate ideal distribution: spread BYEs evenly among teams
+        if (teamIdx < teams.length && byeIdx < byes.length) {
+          // We have both - decide based on even distribution
+          const idealByesBefore = Math.floor((i * byes.length) / totalSlots);
+          const actualByesBefore = byeIdx;
+          
+          if (actualByesBefore < idealByesBefore) {
+            // Place a BYE to catch up to ideal distribution
+            redistributed.push(byes[byeIdx++]);
+          } else {
+            // Place a team
+            redistributed.push(teams[teamIdx++]);
+          }
+        } else if (teamIdx < teams.length) {
+          // Only teams left
+          redistributed.push(teams[teamIdx++]);
+        } else if (byeIdx < byes.length) {
+          // Only BYEs left
+          redistributed.push(byes[byeIdx++]);
+        }
+      }
+      
+      currentRoundSlots = redistributed;
+    }
+    
     const roundGames: Game[] = [];
     
     for (let i = 0; i < currentRoundSlots.length; i += 2) {

@@ -750,6 +750,12 @@ export const useTournamentStore = create<TournamentState>()(
         if (game.courtId) {
           get().unassignGameFromCourt(gameId);
         }
+        
+        // Redistribute BYEs in the next round to prevent double byes
+        if (game.bracketType === 'W' && game.round < tournament.bracket.winners.length) {
+          const nextRoundIndex = game.round; // round 1 -> index 1 (round 2)
+          get().autoAssignTeamsToBracket(nextRoundIndex);
+        }
       },
       
       updateGameTimer: (gameId, timerUpdates) => {
@@ -1233,23 +1239,19 @@ export const useTournamentStore = create<TournamentState>()(
           }
         });
         
-        // Round 0 (first round): assign all teams (respecting seeding)
+        // Round 0 (first round): assign all teams (respecting seeding) and redistribute BYEs
         if (roundIndex === 0) {
           const availableTeams = tournament.teams.filter(team => !assignedTeamIds.has(team.id));
           if (availableTeams.length === 0) return;
           
-          // Get all OPEN slots in order
-          const openSlots: { gameId: string; slot: 'A' | 'B' }[] = [];
+          // Get all slots (both OPEN and already assigned) to redistribute
+          const allSlots: { gameId: string; slot: 'A' | 'B' }[] = [];
           targetRound.forEach(game => {
-            if (game.teamA.type === 'OPEN') {
-              openSlots.push({ gameId: game.id, slot: 'A' });
-            }
-            if (game.teamB.type === 'OPEN') {
-              openSlots.push({ gameId: game.id, slot: 'B' });
-            }
+            allSlots.push({ gameId: game.id, slot: 'A' });
+            allSlots.push({ gameId: game.id, slot: 'B' });
           });
           
-          if (openSlots.length === 0) return;
+          if (allSlots.length === 0) return;
           
           // Prepare teams based on seeding mode
           let teamsToAssign: Team[] = [];
@@ -1261,18 +1263,54 @@ export const useTournamentStore = create<TournamentState>()(
             teamsToAssign = [...availableTeams].sort(() => Math.random() - 0.5);
           }
           
-          const numSlotsToFill = Math.min(teamsToAssign.length, openSlots.length);
-          for (let i = 0; i < numSlotsToFill; i++) {
-            const slot = openSlots[i];
-            get().updateGameSlot(slot.gameId, slot.slot, { type: 'Team', teamId: teamsToAssign[i].id });
-          }
+          // Calculate how many BYEs we need
+          const numByesNeeded = allSlots.length - teamsToAssign.length;
           
-          if (tournament.settings.openSlotPolicy === 'BYE' && numSlotsToFill < openSlots.length) {
-            for (let i = numSlotsToFill; i < openSlots.length; i++) {
-              const slot = openSlots[i];
-              get().updateGameSlot(slot.gameId, slot.slot, { type: 'BYE' });
+          // Redistribute: interleave teams and BYEs evenly to prevent BYE vs BYE
+          const redistributedSlots: Array<{ type: 'Team' | 'BYE'; teamId?: string }> = [];
+          let teamIdx = 0;
+          let byeIdx = 0;
+          const totalSlots = allSlots.length;
+          
+          for (let i = 0; i < totalSlots && (teamIdx < teamsToAssign.length || byeIdx < numByesNeeded); i++) {
+            // Calculate ideal distribution: spread BYEs evenly among teams
+            if (teamIdx < teamsToAssign.length && byeIdx < numByesNeeded) {
+              // We have both - decide based on even distribution
+              const idealByesBefore = Math.floor((i * numByesNeeded) / totalSlots);
+              const actualByesBefore = byeIdx;
+              
+              if (actualByesBefore < idealByesBefore) {
+                // Place a BYE to catch up to ideal distribution
+                redistributedSlots.push({ type: 'BYE' });
+                byeIdx++;
+              } else {
+                // Place a team
+                redistributedSlots.push({ type: 'Team', teamId: teamsToAssign[teamIdx].id });
+                teamIdx++;
+              }
+            } else if (teamIdx < teamsToAssign.length) {
+              // Only teams left
+              redistributedSlots.push({ type: 'Team', teamId: teamsToAssign[teamIdx].id });
+              teamIdx++;
+            } else if (byeIdx < numByesNeeded) {
+              // Only BYEs left
+              redistributedSlots.push({ type: 'BYE' });
+              byeIdx++;
             }
           }
+          
+          // Now assign redistributed slots to games
+          allSlots.forEach((slot, index) => {
+            const redistributed = redistributedSlots[index];
+            if (redistributed) {
+              if (redistributed.type === 'BYE') {
+                get().updateGameSlot(slot.gameId, slot.slot, { type: 'BYE' });
+              } else if (redistributed.type === 'Team' && redistributed.teamId) {
+                get().updateGameSlot(slot.gameId, slot.slot, { type: 'Team', teamId: redistributed.teamId });
+              }
+            }
+          });
+          
           return;
         }
         

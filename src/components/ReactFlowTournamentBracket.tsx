@@ -10,6 +10,7 @@ import type { Tournament, GameSlot, Game, Team } from '../types';
 interface GameNodeData {
   game: Game;
   teams: Team[];
+  tournament?: Tournament;
   isGrandFinal?: boolean;
   bracketType?: 'winners' | 'losers';
 }
@@ -19,21 +20,51 @@ interface RoundLabelData {
   variant?: 'header';
 }
 
-// Helper function
+// Helper function to get team name, checking if previous round game is finished
 const getTeamName = (
   slot: GameSlot,
   game: Game,
   slotType: 'A' | 'B',
-  teams: Team[]
+  teams: Team[],
+  tournament?: Tournament
 ): string => {
   if (slot.type === 'BYE') return 'BYE';
   if (slot.type === 'OPEN') return 'TBD';
 
+  // If this game is finished, show the result
   if (game.result) {
     const name = slotType === 'A' ? game.result.teamAName : game.result.teamBName;
     if (name) return name;
   }
 
+  // For games in round > 1, only show team name if previous round game is finished
+  if (game.round > 1 && tournament?.bracket && slot.type === 'Team' && slot.teamId) {
+    const previousRound = tournament.bracket.winners[game.round - 2]; // round 2 -> index 0 (round 1)
+    if (previousRound) {
+      // Find which game in previous round feeds into this slot
+      // Game index in current round determines which two games from previous round feed into it
+      const currentRound = tournament.bracket.winners[game.round - 1];
+      const currentGameIndex = currentRound?.findIndex(g => g.id === game.id) ?? -1;
+      if (currentGameIndex >= 0) {
+        // Previous round games that feed into this game:
+        // Slot A comes from game (currentGameIndex * 2) in previous round
+        // Slot B comes from game (currentGameIndex * 2 + 1) in previous round
+        const prevGameIndex = slotType === 'A' ? currentGameIndex * 2 : currentGameIndex * 2 + 1;
+        const prevGame = previousRound[prevGameIndex];
+        
+        // Only show team name if previous game is finished
+        if (prevGame && prevGame.status === 'Finished' && prevGame.result) {
+          const team = teams.find(t => t.id === slot.teamId);
+          if (team) return team.name;
+        } else {
+          // Previous game not finished, show TBD
+          return 'TBD';
+        }
+      }
+    }
+  }
+
+  // For round 1 or if we can't determine previous game status, show team name if available
   if (slot.teamId) {
     const team = teams.find(t => t.id === slot.teamId);
     if (team) return team.name;
@@ -44,10 +75,10 @@ const getTeamName = (
 
 // Compact Game Card Node (like the reference image)
 const CompactGameCard: React.FC<NodeProps<GameNodeData>> = ({ data }) => {
-  const { game, teams, isGrandFinal } = data;
+  const { game, teams, isGrandFinal, tournament } = data;
 
-  const teamAName = getTeamName(game.teamA, game, 'A', teams);
-  const teamBName = getTeamName(game.teamB, game, 'B', teams);
+  const teamAName = getTeamName(game.teamA, game, 'A', teams, tournament);
+  const teamBName = getTeamName(game.teamB, game, 'B', teams, tournament);
 
   const winnerId = game.result?.winnerId;
   const teamAWon = winnerId && game.teamA.teamId === winnerId;
@@ -221,6 +252,7 @@ const transformToFixedLayout = (tournament: Tournament) => {
         data: {
           game,
           teams: tournament.teams,
+          tournament,
           bracketType: 'winners',
         },
       });
@@ -286,6 +318,7 @@ const transformToFixedLayout = (tournament: Tournament) => {
           data: {
             game,
             teams: tournament.teams,
+            tournament,
             bracketType: 'losers',
           },
         });
@@ -379,6 +412,7 @@ const transformToFixedLayout = (tournament: Tournament) => {
       data: {
         game: bracket.grandFinal,
         teams: tournament.teams,
+        tournament,
         isGrandFinal: true,
       },
     });

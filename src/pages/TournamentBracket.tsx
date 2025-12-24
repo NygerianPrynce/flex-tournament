@@ -74,9 +74,15 @@ export function TournamentBracket({ tournament: propTournament, viewerMode = fal
             currentPhase: 'idle',
           },
         });
+        
+        // Redistribute BYEs in the next round to prevent double byes
+        if (game.round < tournament.bracket.winners.length) {
+          const nextRoundIndex = game.round; // round 1 -> index 1 (round 2)
+          autoAssignTeamsToBracket(nextRoundIndex);
+        }
       }
     });
-  }, [tournament?.bracket, updateGame]);
+  }, [tournament?.bracket, updateGame, autoAssignTeamsToBracket]);
   
   if (!tournament) {
     return <div className="p-8">No tournament loaded</div>;
