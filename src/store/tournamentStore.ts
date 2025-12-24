@@ -1252,72 +1252,92 @@ export const useTournamentStore = create<TournamentState>()(
           return;
         }
         
-        // For subsequent rounds: respect bracket pairing structure
-        // Each game in the next round pairs winners from two games in the previous round
-        // Game 0&1 → next game 0, Game 2&3 → next game 1, etc.
+        // For subsequent rounds: redistribute BYEs evenly to prevent double byes
         const previousRound = tournament.bracket.winners[roundIndex - 1];
         if (!previousRound) return;
         
+        // First, collect all advancing teams and BYEs
+        const advancingTeams: string[] = [];
+        const advancingByes: number[] = []; // Track BYE positions for redistribution
+        
+        previousRound.forEach((prevGame) => {
+          if (prevGame.status === 'Finished' && prevGame.result?.winnerId) {
+            if (prevGame.result.winnerId === 'BYE') {
+              advancingByes.push(advancingByes.length); // Track BYE position
+            } else {
+              advancingTeams.push(prevGame.result.winnerId);
+            }
+          } else if (prevGame.teamA.type === 'BYE' && prevGame.teamB.type === 'BYE') {
+            // BYE vs BYE - one BYE advances
+            advancingByes.push(advancingByes.length);
+          } else if (prevGame.teamA.type === 'BYE') {
+            if (prevGame.teamB.type === 'Team') {
+              advancingTeams.push(prevGame.teamB.teamId);
+            } else {
+              advancingByes.push(advancingByes.length);
+            }
+          } else if (prevGame.teamB.type === 'BYE') {
+            if (prevGame.teamA.type === 'Team') {
+              advancingTeams.push(prevGame.teamA.teamId);
+            } else {
+              advancingByes.push(advancingByes.length);
+            }
+          } else if (prevGame.teamA.type === 'Team') {
+            // Game not finished, use teamA as placeholder
+            advancingTeams.push(prevGame.teamA.teamId);
+          } else if (prevGame.teamB.type === 'Team') {
+            // Game not finished, use teamB as placeholder
+            advancingTeams.push(prevGame.teamB.teamId);
+          }
+        });
+        
+        // Redistribute: pair teams with BYEs first, then create BYE vs BYE games if needed
+        const numGames = targetRound.length;
+        const totalSlots = numGames * 2;
+        const totalAdvancing = advancingTeams.length + advancingByes.length;
+        
+        // Create a distribution plan: teams first, then BYEs distributed evenly
+        const slots: Array<{ type: 'Team' | 'BYE'; teamId?: string }> = [];
+        
+        // Fill with teams first
+        for (let i = 0; i < advancingTeams.length && slots.length < totalSlots; i++) {
+          slots.push({ type: 'Team', teamId: advancingTeams[i] });
+        }
+        
+        // Distribute BYEs evenly across remaining slots
+        // Strategy: spread BYEs out so we get Team vs BYE pairings, and BYE vs BYE if needed
+        let byeIndex = 0;
+        while (slots.length < totalSlots && byeIndex < advancingByes.length) {
+          slots.push({ type: 'BYE' });
+          byeIndex++;
+        }
+        
+        // Fill remaining slots with OPEN if needed (shouldn't happen, but safety)
+        while (slots.length < totalSlots) {
+          slots.push({ type: 'Team' }); // Will be OPEN in practice
+        }
+        
+        // Now assign to games, redistributing BYEs evenly
         targetRound.forEach((nextGame, nextGameIndex) => {
-          // Calculate which two games from previous round feed into this game
-          const prevGameIndex1 = nextGameIndex * 2;
-          const prevGameIndex2 = nextGameIndex * 2 + 1;
+          const slotAIndex = nextGameIndex * 2;
+          const slotBIndex = nextGameIndex * 2 + 1;
           
-          const prevGame1 = previousRound[prevGameIndex1];
-          const prevGame2 = previousRound[prevGameIndex2];
+          const slotA = slots[slotAIndex];
+          const slotB = slots[slotBIndex];
           
-          // Get winners from previous round games
-          let winner1: string | 'BYE' | undefined;
-          let winner2: string | 'BYE' | undefined;
-          
-          if (prevGame1) {
-            if (prevGame1.status === 'Finished' && prevGame1.result?.winnerId) {
-              winner1 = prevGame1.result.winnerId === 'BYE' ? 'BYE' : prevGame1.result.winnerId;
-            } else if (prevGame1.teamA.type === 'BYE' && prevGame1.teamB.type === 'BYE') {
-              // BYE vs BYE - advance a BYE
-              winner1 = 'BYE';
-            } else if (prevGame1.teamA.type === 'BYE') {
-              winner1 = prevGame1.teamB.type === 'Team' ? prevGame1.teamB.teamId : 'BYE';
-            } else if (prevGame1.teamB.type === 'BYE') {
-              winner1 = prevGame1.teamA.type === 'Team' ? prevGame1.teamA.teamId : 'BYE';
-            } else if (prevGame1.teamA.type === 'Team') {
-              // Game not finished yet, but teamA is assigned - use it as placeholder
-              winner1 = prevGame1.teamA.teamId;
-            }
-          }
-          
-          if (prevGame2) {
-            if (prevGame2.status === 'Finished' && prevGame2.result?.winnerId) {
-              winner2 = prevGame2.result.winnerId === 'BYE' ? 'BYE' : prevGame2.result.winnerId;
-            } else if (prevGame2.teamA.type === 'BYE' && prevGame2.teamB.type === 'BYE') {
-              // BYE vs BYE - advance a BYE
-              winner2 = 'BYE';
-            } else if (prevGame2.teamA.type === 'BYE') {
-              winner2 = prevGame2.teamB.type === 'Team' ? prevGame2.teamB.teamId : 'BYE';
-            } else if (prevGame2.teamB.type === 'BYE') {
-              winner2 = prevGame2.teamA.type === 'Team' ? prevGame2.teamA.teamId : 'BYE';
-            } else if (prevGame2.teamA.type === 'Team') {
-              // Game not finished yet, but teamA is assigned - use it as placeholder
-              winner2 = prevGame2.teamA.teamId;
-            }
-          }
-          
-          // Assign to next round game slots based on bracket structure
-          // Slot A comes from the first game of the pair (prevGameIndex1)
-          // Slot B comes from the second game of the pair (prevGameIndex2)
-          if (nextGame.teamA.type === 'OPEN' && winner1) {
-            if (winner1 === 'BYE') {
+          if (nextGame.teamA.type === 'OPEN' && slotA) {
+            if (slotA.type === 'BYE') {
               get().updateGameSlot(nextGame.id, 'A', { type: 'BYE' });
-            } else {
-              get().updateGameSlot(nextGame.id, 'A', { type: 'Team', teamId: winner1 });
+            } else if (slotA.type === 'Team' && slotA.teamId) {
+              get().updateGameSlot(nextGame.id, 'A', { type: 'Team', teamId: slotA.teamId });
             }
           }
           
-          if (nextGame.teamB.type === 'OPEN' && winner2) {
-            if (winner2 === 'BYE') {
+          if (nextGame.teamB.type === 'OPEN' && slotB) {
+            if (slotB.type === 'BYE') {
               get().updateGameSlot(nextGame.id, 'B', { type: 'BYE' });
-            } else {
-              get().updateGameSlot(nextGame.id, 'B', { type: 'Team', teamId: winner2 });
+            } else if (slotB.type === 'Team' && slotB.teamId) {
+              get().updateGameSlot(nextGame.id, 'B', { type: 'Team', teamId: slotB.teamId });
             }
           }
         });
