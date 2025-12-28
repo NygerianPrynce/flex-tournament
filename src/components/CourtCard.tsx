@@ -146,16 +146,16 @@ export function CourtCard({ court, game, onEdit, onRemove, viewerMode = false }:
     // Fallback rendering if tournament is not loaded yet
     return (
       <div className="card border-2 border-gray-200 bg-light-off-white transition-colors">
-        <div className="flex justify-between items-start mb-4">
+        <div className="flex justify-between items-start mb-3 sm:mb-4">
           <h3
-            className="text-xl font-heading uppercase tracking-wide-heading text-accent-orange"
+            className="text-base sm:text-lg md:text-xl font-heading uppercase tracking-wide-heading text-accent-orange"
             style={{ fontStyle: 'oblique' }}
           >
             {court.name}
           </h3>
         </div>
-        <div className="h-40 mb-4 flex items-center justify-center bg-light-warm-gray rounded-lg">
-          <div className="text-sm text-dark-charcoal font-body">No game assigned</div>
+        <div className="h-32 sm:h-36 md:h-40 mb-3 sm:mb-4 flex items-center justify-center bg-light-warm-gray rounded-lg">
+          <div className="text-xs sm:text-sm text-dark-charcoal font-body">No game assigned</div>
         </div>
       </div>
     );
@@ -188,15 +188,15 @@ export function CourtCard({ court, game, onEdit, onRemove, viewerMode = false }:
           }
         >
           {game ? (
-            <div className="text-center relative z-10 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-lg shadow-sm">
-              <div className="text-base md:text-lg font-semibold text-dark-near-black text-center">{getTeamName(game.teamA)}</div>
+            <div className="text-center relative z-10 bg-white/80 backdrop-blur-sm px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg shadow-sm">
+              <div className="text-sm sm:text-base md:text-lg font-semibold text-dark-near-black text-center truncate">{getTeamName(game.teamA)}</div>
               <div
-                className="text-xl md:text-2xl font-heading uppercase tracking-wide-heading text-accent-orange my-1"
+                className="text-base sm:text-lg md:text-xl lg:text-2xl font-heading uppercase tracking-wide-heading text-accent-orange my-0.5 sm:my-1"
                 style={{ fontStyle: 'oblique' }}
               >
                 VS
               </div>
-              <div className="text-base md:text-lg font-semibold text-dark-near-black text-center">{getTeamName(game.teamB)}</div>
+              <div className="text-sm sm:text-base md:text-lg font-semibold text-dark-near-black text-center truncate">{getTeamName(game.teamB)}</div>
             </div>
           ) : (
             <div className="text-xs md:text-sm text-dark-charcoal font-body relative z-10">No game assigned</div>
@@ -213,7 +213,7 @@ export function CourtCard({ court, game, onEdit, onRemove, viewerMode = false }:
                   {currentPhase === 'flex' && 'Flex Time'}
                   {currentPhase === 'overtime' && 'Overrun'}
                 </div>
-                <div className={`text-2xl md:text-3xl font-bold ${currentPhase === 'overtime' ? 'text-red-600' : 'text-sport-orange'}`}>
+                <div className={`text-xl sm:text-2xl md:text-3xl font-bold ${currentPhase === 'overtime' ? 'text-red-600' : 'text-sport-orange'}`}>
                   {currentPhase === 'overtime' ? (
                     `+${formatTime(remainingTime)}`
                   ) : (
@@ -224,13 +224,15 @@ export function CourtCard({ court, game, onEdit, onRemove, viewerMode = false }:
             )}
             
             {game.result && (
-              <div className="text-center bg-gray-50 rounded p-2">
-                <div className="text-sm text-gray-600">Final Score</div>
-                <div className="font-semibold">
-                  {getTeamName(game.teamA)} {game.result.scoreA} - {game.result.scoreB} {getTeamName(game.teamB)}
+              <div className="text-center bg-gray-50 rounded p-1.5 sm:p-2">
+                <div className="text-xs sm:text-sm text-gray-600">Final Score</div>
+                <div className="font-semibold text-sm sm:text-base">
+                  <div className="truncate">{getTeamName(game.teamA)} {game.result.scoreA}</div>
+                  <div className="text-accent-orange my-0.5">-</div>
+                  <div className="truncate">{game.result.scoreB} {getTeamName(game.teamB)}</div>
                 </div>
                 {game.result.winnerId && (
-                  <div className="text-xs text-green-600 mt-1">
+                  <div className="text-xs text-green-600 mt-1 truncate">
                     Winner: {teams.find(t => t.id === game.result!.winnerId)?.name || getTeamName(
                       game.teamA.type === 'Team' && game.teamA.teamId === game.result.winnerId ? game.teamA :
                       game.teamB.type === 'Team' && game.teamB.teamId === game.result.winnerId ? game.teamB :

@@ -69,13 +69,13 @@ function GamePoolItem({ game, teams, tournament, viewerMode = false }: { game: G
       ref={setNodeRef}
       style={style}
       {...(!viewerMode ? { ...attributes, ...listeners } : {})}
-      className={`card transition-shadow border-2 border-sport-green p-3 md:p-4 ${viewerMode ? '' : 'cursor-move hover:shadow-lg'}`}
+      className={`card transition-shadow border-2 border-sport-green p-2 sm:p-3 md:p-4 ${viewerMode ? '' : 'cursor-move hover:shadow-lg'}`}
     >
       <div className="text-center">
-        <div className="text-xs md:text-sm text-gray-500 mb-1 font-medium">{getRoundNameWithBracket()}</div>
-        <div className="text-sm md:text-base font-semibold">{getTeamName(game.teamA)}</div>
-        <div className="text-sport-green font-bold my-1 text-xs md:text-sm">VS</div>
-        <div className="text-sm md:text-base font-semibold">{getTeamName(game.teamB)}</div>
+        <div className="text-xs sm:text-xs md:text-sm text-gray-500 mb-1 font-medium truncate">{getRoundNameWithBracket()}</div>
+        <div className="text-xs sm:text-sm md:text-base font-semibold truncate">{getTeamName(game.teamA)}</div>
+        <div className="text-sport-green font-bold my-0.5 sm:my-1 text-xs sm:text-xs md:text-sm">VS</div>
+        <div className="text-xs sm:text-sm md:text-base font-semibold truncate">{getTeamName(game.teamB)}</div>
       </div>
     </div>
   );

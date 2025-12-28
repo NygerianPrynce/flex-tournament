@@ -216,12 +216,12 @@ export function TournamentResults({ tournament: propTournament, viewerMode: _vie
       <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-sport-orange mb-4 sm:mb-5 md:mb-6">Results</h2>
       
       {tournamentComplete && champion && (
-        <div className="mb-8 bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-400 rounded-xl p-6 shadow-lg">
+        <div className="mb-6 sm:mb-8 bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-400 rounded-xl p-4 sm:p-6 shadow-lg">
           <div className="text-center">
-            <h3 className="text-3xl font-bold text-white mb-2">
+            <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2">
               {champion} are the Champions!
             </h3>
-            <p className="text-xl text-white/90">
+            <p className="text-base sm:text-lg md:text-xl text-white/90">
               {tournament.name}
             </p>
           </div>
@@ -236,7 +236,7 @@ export function TournamentResults({ tournament: propTournament, viewerMode: _vie
           {winnersRounds.length > 0 && (
             <div>
               {isDoubleElimination && (
-                <h3 className="text-2xl font-heading uppercase tracking-wide-heading text-green-700 mb-6 pb-2 border-b-2 border-green-500" style={{ fontStyle: 'oblique' }}>
+                <h3 className="text-xl sm:text-2xl font-heading uppercase tracking-wide-heading text-green-700 mb-4 sm:mb-5 md:mb-6 pb-2 border-b-2 border-green-500" style={{ fontStyle: 'oblique' }}>
                   Winners Bracket
                 </h3>
               )}
@@ -248,7 +248,7 @@ export function TournamentResults({ tournament: propTournament, viewerMode: _vie
                   
                   return (
                     <div key={`W-${round}`}>
-                      <h4 className="text-xl font-semibold mb-4 text-gray-700">{roundName}</h4>
+                      <h4 className="text-base sm:text-lg md:text-xl font-semibold mb-3 sm:mb-4 text-gray-700">{roundName}</h4>
                       <div className="space-y-4">
                         {winnersGames[round].map(game => {
                           const duration = calculateGameDuration(game);
@@ -261,28 +261,28 @@ export function TournamentResults({ tournament: propTournament, viewerMode: _vie
                           const teamBWon = winnerId === teamBId;
                           
                           return (
-                            <div key={game.id} className="card">
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-3 mb-2">
-                                    <div className={`font-semibold ${teamAWon ? 'text-sport-green font-bold text-lg' : 'text-gray-700'}`}>
+                            <div key={game.id} className="card p-3 sm:p-4">
+                              <div className="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                                    <div className={`font-semibold text-sm sm:text-base ${teamAWon ? 'text-sport-green font-bold text-base sm:text-lg' : 'text-gray-700'} truncate`}>
                                       {teamAName}
                                     </div>
-                                    <span className="text-gray-400">vs</span>
-                                    <div className={`font-semibold ${teamBWon ? 'text-sport-green font-bold text-lg' : 'text-gray-700'}`}>
+                                    <span className="text-gray-400 text-xs sm:text-sm">vs</span>
+                                    <div className={`font-semibold text-sm sm:text-base ${teamBWon ? 'text-sport-green font-bold text-base sm:text-lg' : 'text-gray-700'} truncate`}>
                                       {teamBName}
                                     </div>
                                   </div>
-                                  <div className="text-sm text-gray-600 mt-1">
+                                  <div className="text-xs sm:text-sm text-gray-600 mt-1">
                                     {formatDurationBreakdown(duration)}
                                   </div>
                                 </div>
                                 {game.result && (
-                                  <div className="text-right ml-4">
-                                    <div className={`text-2xl font-bold ${teamAWon ? 'text-sport-green' : teamBWon ? 'text-sport-green' : 'text-gray-700'}`}>
+                                  <div className="text-left sm:text-right ml-0 sm:ml-4 flex-shrink-0">
+                                    <div className={`text-xl sm:text-2xl font-bold ${teamAWon ? 'text-sport-green' : teamBWon ? 'text-sport-green' : 'text-gray-700'}`}>
                                       {game.result.scoreA} - {game.result.scoreB}
                                     </div>
-                                    <div className="text-xs text-gray-500 mt-1">
+                                    <div className="text-xs text-gray-500 mt-1 truncate">
                                       {teamAWon ? teamAName : teamBWon ? teamBName : ''} won
                                     </div>
                                   </div>
@@ -302,7 +302,7 @@ export function TournamentResults({ tournament: propTournament, viewerMode: _vie
           {/* Losers Bracket */}
           {isDoubleElimination && losersRounds.length > 0 && (
             <div>
-              <h3 className="text-2xl font-heading uppercase tracking-wide-heading text-red-700 mb-6 pb-2 border-b-2 border-red-500" style={{ fontStyle: 'oblique' }}>
+              <h3 className="text-xl sm:text-2xl font-heading uppercase tracking-wide-heading text-red-700 mb-4 sm:mb-5 md:mb-6 pb-2 border-b-2 border-red-500" style={{ fontStyle: 'oblique' }}>
                 Losers Bracket
               </h3>
               <div className="space-y-8">
@@ -317,7 +317,7 @@ export function TournamentResults({ tournament: propTournament, viewerMode: _vie
                   
                   return (
                     <div key={`L-${round}`}>
-                      <h4 className="text-xl font-semibold mb-4 text-gray-700">{roundName}</h4>
+                      <h4 className="text-base sm:text-lg md:text-xl font-semibold mb-3 sm:mb-4 text-gray-700">{roundName}</h4>
                       <div className="space-y-4">
                         {losersGames[round].map(game => {
                           const duration = calculateGameDuration(game);
@@ -330,28 +330,28 @@ export function TournamentResults({ tournament: propTournament, viewerMode: _vie
                           const teamBWon = winnerId === teamBId;
                           
                           return (
-                            <div key={game.id} className="card">
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-3 mb-2">
-                                    <div className={`font-semibold ${teamAWon ? 'text-sport-green font-bold text-lg' : 'text-gray-700'}`}>
+                            <div key={game.id} className="card p-3 sm:p-4">
+                              <div className="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                                    <div className={`font-semibold text-sm sm:text-base ${teamAWon ? 'text-sport-green font-bold text-base sm:text-lg' : 'text-gray-700'} truncate`}>
                                       {teamAName}
                                     </div>
-                                    <span className="text-gray-400">vs</span>
-                                    <div className={`font-semibold ${teamBWon ? 'text-sport-green font-bold text-lg' : 'text-gray-700'}`}>
+                                    <span className="text-gray-400 text-xs sm:text-sm">vs</span>
+                                    <div className={`font-semibold text-sm sm:text-base ${teamBWon ? 'text-sport-green font-bold text-base sm:text-lg' : 'text-gray-700'} truncate`}>
                                       {teamBName}
                                     </div>
                                   </div>
-                                  <div className="text-sm text-gray-600 mt-1">
+                                  <div className="text-xs sm:text-sm text-gray-600 mt-1">
                                     {formatDurationBreakdown(duration)}
                                   </div>
                                 </div>
                                 {game.result && (
-                                  <div className="text-right ml-4">
-                                    <div className={`text-2xl font-bold ${teamAWon ? 'text-sport-green' : teamBWon ? 'text-sport-green' : 'text-gray-700'}`}>
+                                  <div className="text-left sm:text-right ml-0 sm:ml-4 flex-shrink-0">
+                                    <div className={`text-xl sm:text-2xl font-bold ${teamAWon ? 'text-sport-green' : teamBWon ? 'text-sport-green' : 'text-gray-700'}`}>
                                       {game.result.scoreA} - {game.result.scoreB}
                                     </div>
-                                    <div className="text-xs text-gray-500 mt-1">
+                                    <div className="text-xs text-gray-500 mt-1 truncate">
                                       {teamAWon ? teamAName : teamBWon ? teamBName : ''} won
                                     </div>
                                   </div>

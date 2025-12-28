@@ -45,8 +45,8 @@ export function ViewerMode() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-light-off-white flex items-center justify-center">
-        <div className="text-xl text-dark-charcoal">Loading tournament...</div>
+      <div className="min-h-screen bg-light-off-white flex items-center justify-center p-4">
+        <div className="text-base sm:text-lg md:text-xl text-dark-charcoal">Loading tournament...</div>
       </div>
     );
   }

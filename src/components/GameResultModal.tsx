@@ -76,17 +76,17 @@ export function GameResultModal({ game, teams, onClose, onSave }: GameResultModa
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-3 sm:px-4"
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl"
+        className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-md shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col items-center space-y-5">
           {/* Header */}
           <div className="text-center w-full">
-            <h3 className="text-2xl font-heading uppercase tracking-wide-heading text-accent-orange mb-2" style={{ fontStyle: 'oblique' }}>
+            <h3 className="text-lg sm:text-xl md:text-2xl font-heading uppercase tracking-wide-heading text-accent-orange mb-2" style={{ fontStyle: 'oblique' }}>
               Review Game Result
             </h3>
             <p className="text-xs text-gray-500">Confirm winner and scores before saving</p>
@@ -94,11 +94,11 @@ export function GameResultModal({ game, teams, onClose, onSave }: GameResultModa
 
           {/* Teams Display */}
           <div className="w-full flex flex-col items-center space-y-2 py-2">
-            <div className="text-xl font-bold text-dark-near-black text-center">{getTeamName(game.teamA)}</div>
-            <div className="text-lg font-heading uppercase tracking-wide-heading text-sport-green" style={{ fontStyle: 'oblique' }}>
+            <div className="text-base sm:text-lg md:text-xl font-bold text-dark-near-black text-center truncate">{getTeamName(game.teamA)}</div>
+            <div className="text-sm sm:text-base md:text-lg font-heading uppercase tracking-wide-heading text-sport-green" style={{ fontStyle: 'oblique' }}>
               VS
             </div>
-            <div className="text-xl font-bold text-dark-near-black text-center">{getTeamName(game.teamB)}</div>
+            <div className="text-base sm:text-lg md:text-xl font-bold text-dark-near-black text-center truncate">{getTeamName(game.teamB)}</div>
           </div>
 
           {/* Scores Input */}
@@ -116,7 +116,7 @@ export function GameResultModal({ game, teams, onClose, onSave }: GameResultModa
                     setScoreA('0');
                   }
                 }}
-                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg text-center text-lg font-bold text-dark-near-black focus:outline-none focus:ring-2 focus:ring-accent-orange focus:border-accent-orange transition-all"
+                className="w-full px-3 sm:px-4 py-2 border-2 border-gray-300 rounded-lg text-center text-base sm:text-lg font-bold text-dark-near-black focus:outline-none focus:ring-2 focus:ring-accent-orange focus:border-accent-orange transition-all"
                 min="0"
               />
             </div>
@@ -133,7 +133,7 @@ export function GameResultModal({ game, teams, onClose, onSave }: GameResultModa
                     setScoreB('0');
                   }
                 }}
-                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg text-center text-lg font-bold text-dark-near-black focus:outline-none focus:ring-2 focus:ring-accent-orange focus:border-accent-orange transition-all"
+                className="w-full px-3 sm:px-4 py-2 border-2 border-gray-300 rounded-lg text-center text-base sm:text-lg font-bold text-dark-near-black focus:outline-none focus:ring-2 focus:ring-accent-orange focus:border-accent-orange transition-all"
                 min="0"
               />
             </div>

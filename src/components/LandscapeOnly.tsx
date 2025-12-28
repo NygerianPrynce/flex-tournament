@@ -38,12 +38,12 @@ export function LandscapeOnly({ children }: { children: React.ReactNode }) {
   if (!isLandscape) {
     return (
       <div className="min-h-screen bg-light-off-white flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <div className="text-6xl mb-6">📱</div>
-          <h1 className="text-2xl font-heading uppercase tracking-wide-heading text-accent-orange mb-4" style={{ fontStyle: 'oblique' }}>
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 sm:p-8 text-center">
+          <div className="text-5xl sm:text-6xl mb-4 sm:mb-6">📱</div>
+          <h1 className="text-xl sm:text-2xl font-heading uppercase tracking-wide-heading text-accent-orange mb-3 sm:mb-4" style={{ fontStyle: 'oblique' }}>
             Please Rotate Your Device
           </h1>
-          <p className="text-dark-charcoal text-lg">
+          <p className="text-dark-charcoal text-base sm:text-lg px-2">
             This tournament viewer is optimized for landscape mode. Please rotate your phone to view the tournament.
           </p>
         </div>
