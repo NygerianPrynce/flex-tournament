@@ -113,9 +113,13 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
   
   if (!tournament || !tournament.bracket) {
     return (
-      <div className="p-8">
+      <div className="p-3 sm:p-4 md:p-6 lg:p-8">
         <div className="text-center text-gray-400 py-8">
-          {!tournament ? 'No tournament loaded' : 'Bracket not generated yet. Please generate bracket first.'}
+          {!tournament 
+            ? 'No tournament loaded' 
+            : viewerMode 
+              ? 'Bracket has not yet been generated.' 
+              : 'Bracket not generated yet. Please generate bracket first.'}
         </div>
       </div>
     );

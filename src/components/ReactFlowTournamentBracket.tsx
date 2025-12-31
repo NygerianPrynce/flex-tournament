@@ -495,7 +495,7 @@ export const ReactFlowTournamentBracket: React.FC<{ tournament: Tournament }> = 
     : undefined;
 
   return (
-    <div className="w-full h-[500px] sm:h-[600px] md:h-[700px] bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl overflow-hidden relative">
+    <div className="w-full h-[500px] sm:h-[600px] md:h-[700px] bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl overflow-hidden relative border border-gray-300">
       {/* React Flow */}
       <div className="w-full h-full pt-4">
         <ReactFlow
@@ -504,30 +504,30 @@ export const ReactFlowTournamentBracket: React.FC<{ tournament: Tournament }> = 
           nodeTypes={nodeTypes}
           fitView
           fitViewOptions={{
-            padding: 0.05,
+            padding: 0.1,
             includeHiddenNodes: false,
           }}
-          minZoom={1}
-          maxZoom={1}
+          minZoom={0.5}
+          maxZoom={2}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
           panOnDrag
           panOnScroll
-          zoomOnScroll={false}
-          zoomOnPinch={false}
+          zoomOnScroll={true}
+          zoomOnPinch={true}
           preventScrolling={false}
           translateExtent={translateExtent}
           defaultEdgeOptions={{
             type: 'smoothstep',
           }}
         >
-          <Background color="#e5e7eb" gap={20} size={1} />
+          <Background color="#d1d5db" gap={20} size={1} />
           <Controls
             className="!bg-white !border-gray-300 !shadow-lg"
             showInteractive={false}
-            showZoom={false}
-            showFitView={false}
+            showZoom={true}
+            showFitView={true}
           />
         </ReactFlow>
       </div>

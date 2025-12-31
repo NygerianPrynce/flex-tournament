@@ -1473,10 +1473,10 @@ const renderEditorView = () => {
               
   return (
     <div className="p-3 sm:p-4 md:p-6 lg:p-8 overflow-x-hidden">
-      <div className="flex items-center justify-between mb-4 sm:mb-6 md:mb-8">
+      <div className={`flex items-center justify-between ${viewerMode || viewMode === 'flow' ? 'mb-2 sm:mb-3 md:mb-4' : 'mb-4 sm:mb-6 md:mb-8'}`}>
               <div>
           <h2
-            className="text-4xl font-heading uppercase tracking-wide-heading text-accent-orange mb-2"
+            className="text-2xl sm:text-3xl md:text-4xl font-heading uppercase tracking-wide-heading text-accent-orange mb-1 sm:mb-2"
             style={{ fontStyle: 'oblique' }}
           >
             BRACKET
