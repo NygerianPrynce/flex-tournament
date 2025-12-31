@@ -1,4 +1,4 @@
-import type { Team, Game, Bracket, TournamentSettings, GameSlot, SlotType, SeedingType } from '../types';
+import type { Team, Game, Bracket, TournamentSettings, GameSlot, SeedingType } from '../types';
 
 /**
  * Calculate the next power of 2 greater than or equal to n
