@@ -141,7 +141,7 @@ export function Setup() {
   const [tournamentName, setTournamentName] = useState('My Tournament');
   const [sport, setSport] = useState<Sport>('basketball');
   const [includeLosersBracket, setIncludeLosersBracket] = useState(false);
-  const [openSlotPolicy, setOpenSlotPolicy] = useState<'BYE' | 'OPEN'>('BYE');
+  const [openSlotPolicy] = useState<'BYE' | 'OPEN'>('BYE');
   const [teams, setTeams] = useState<Team[]>([]);
   const [refs, setRefs] = useState<Ref[]>([]);
   const [seedingMode, setSeedingMode] = useState<SeedingMode>('random');

@@ -91,18 +91,6 @@ export function TournamentRefs() {
   
   const allGames = getAllGames();
   
-  // Check if ref is in use (assigned to any game - active or queued)
-  const isRefInUse = (refId: string): boolean => {
-    return allGames.some(g => {
-      // Check if ref is assigned to any game (queued or active)
-      if (g.courtId && (g.status === 'Queued' || g.status === 'Warmup' || g.status === 'Live' || g.status === 'Flex' || g.status === 'Paused')) {
-        const refIds = g.refIds || (g.refId ? [g.refId] : []);
-        return refIds.includes(refId);
-      }
-      return false;
-    });
-  };
-  
   // Check if ref is assigned to any game (including queued games on courts)
   const isRefAssignedToGame = (refId: string): boolean => {
     return allGames.some(g => {
