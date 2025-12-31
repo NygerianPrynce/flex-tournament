@@ -30,35 +30,6 @@ export function generateBracketSlots(
   return slots;
 }
 
-/**
- * Standard seeding placement: 1 vs last, 2 vs second-last, etc.
- * Uses standard tournament bracket seeding algorithm
- */
-function placeSeededTeamsStandard(teams: Team[], bracketSize: number): GameSlot[] {
-  const slots: GameSlot[] = new Array(bracketSize).fill(null).map(() => ({ type: 'OPEN' as SlotType }));
-  
-  // Sort teams by seed (1 is best)
-  const sortedTeams = [...teams].sort((a, b) => (a.seed || 999) - (b.seed || 999));
-  
-  // Generate seeding positions using standard algorithm
-  function generateSeedingPositions(size: number): number[] {
-    if (size === 1) return [0];
-    const half = size / 2;
-    const firstHalf = generateSeedingPositions(half);
-    const secondHalf = firstHalf.map(p => p + half);
-    return [...firstHalf, ...secondHalf];
-  }
-  
-  const seedPositions = generateSeedingPositions(bracketSize);
-  
-  // Assign teams to positions based on seed
-  for (let i = 0; i < sortedTeams.length && i < bracketSize; i++) {
-    const position = seedPositions[i];
-    slots[position] = { type: 'Team', teamId: sortedTeams[i].id };
-  }
-  
-  return slots;
-}
 
 
 
