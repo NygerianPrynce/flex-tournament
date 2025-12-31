@@ -746,16 +746,16 @@ export function Landing() {
               .features-container {
                 padding: 0 24px !important;
               }
-              .feature-card-mobile .ant-card-body {
+              .feature-card .ant-card-body {
                 padding: 24px !important;
               }
-              .feature-card-mobile .ant-typography {
-                font-size: 1.25rem !important;
+              .feature-card h4.ant-typography {
+                font-size: 1rem !important;
               }
-              .feature-card-mobile .ant-typography + .ant-typography {
+              .feature-card .ant-typography + .ant-typography {
                 font-size: 0.875rem !important;
               }
-              .feature-card-mobile {
+              .feature-card {
                 text-align: center !important;
               }
             }
