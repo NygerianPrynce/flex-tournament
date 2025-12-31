@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import type { Game, Team } from '../types';
+import { Modal, Typography, InputNumber, Select, Button, Space, Alert } from 'antd';
+
+const { Title, Text } = Typography;
 
 interface GameResultModalProps {
   game: Game;
   teams: Team[];
   onClose: () => void;
   onSave: (winnerId: string, scoreA: number, scoreB: number) => void;
+  scoringRequired?: boolean; // If false, scores are optional (default: true)
 }
 
-export function GameResultModal({ game, teams, onClose, onSave }: GameResultModalProps) {
+export function GameResultModal({ game, teams, onClose, onSave, scoringRequired = true }: GameResultModalProps) {
   const [scoreA, setScoreA] = useState<string>(game.result?.scoreA?.toString() || '');
   const [scoreB, setScoreB] = useState<string>(game.result?.scoreB?.toString() || '');
   const [winnerId, setWinnerId] = useState<string>('');
@@ -29,9 +33,12 @@ export function GameResultModal({ game, teams, onClose, onSave }: GameResultModa
   const getNumericScoreA = () => parseInt(scoreA) || 0;
   const getNumericScoreB = () => parseInt(scoreB) || 0;
   
-  // Validate that winner matches scores
+  // Validate that winner matches scores (only if scoring is required)
   const isWinnerValid = () => {
     if (!winnerId) return false;
+    
+    // If scoring is not required, just need a winner
+    if (!scoringRequired) return true;
     
     const numScoreA = getNumericScoreA();
     const numScoreB = getNumericScoreB();
@@ -54,177 +61,258 @@ export function GameResultModal({ game, teams, onClose, onSave }: GameResultModa
   
   const handleSave = () => {
     if (!winnerId) {
-      alert('Please select a winner');
+      Modal.warning({
+        title: 'Winner Required',
+        content: 'Please select a winner before submitting.',
+      });
       return;
     }
     
-    if (!isWinnerValid()) {
-      alert('Winner selection does not match the scores. The winning team must have the higher score.');
+    if (scoringRequired && !isWinnerValid()) {
+      Modal.warning({
+        title: 'Invalid Result',
+        content: 'Winner selection does not match the scores. The winning team must have the higher score.',
+      });
       return;
     }
     
-    onSave(winnerId, getNumericScoreA(), getNumericScoreB());
+    // If scoring is not required, use 0 for scores
+    const finalScoreA = scoringRequired ? getNumericScoreA() : 0;
+    const finalScoreB = scoringRequired ? getNumericScoreB() : 0;
+    onSave(winnerId, finalScoreA, finalScoreB);
     onClose();
   };
   
-  const getWinnerName = () => {
-    if (!winnerId) return '';
-    if (winnerId === teamAId) return getTeamName(game.teamA);
-    if (winnerId === teamBId) return getTeamName(game.teamB);
-    return '';
-  };
-
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-3 sm:px-4"
-      onClick={onClose}
-    >
-      <div 
-        className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-md shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+    <>
+      <style>{`
+  .winner-select-centered .ant-select-selector {
+    text-align: center !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .winner-select-centered .ant-select-selection-item {
+    text-align: center !important;
+    justify-content: center !important;
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+  .winner-select-centered .ant-select-selection-placeholder {
+    text-align: center !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+  }
+  .winner-select-centered .ant-select-selection-search {
+    text-align: center !important;
+    width: 100% !important;
+  }
+  .winner-select-centered .ant-select-selection-search-input {
+    text-align: center !important;
+  }
+  
+  /* These target the dropdown menu items */
+  .winner-select-centered .ant-select-item {
+    text-align: center !important;
+    justify-content: center !important;
+  }
+  .winner-select-centered .ant-select-item-option-content {
+    text-align: center !important;
+    width: 100% !important;
+    display: block !important;
+  }
+  
+  .score-input-centered .ant-input-number-input {
+    text-align: center !important;
+  }
+  .score-input-centered .ant-input-number-input-wrap {
+    text-align: center !important;
+  }
+`}</style>
+      <Modal
+        title={
+          <Title level={3} style={{ margin: 0, fontWeight: 700, color: '#f97316', textAlign: 'center' }}>
+            Review Game Result
+          </Title>
+        }
+        open={true}
+        onCancel={onClose}
+        footer={null}
+        width={600}
+        centered
+        style={{ fontFamily: 'Poppins, sans-serif' }}
       >
-        <div className="flex flex-col items-center space-y-5">
-          {/* Header */}
-          <div className="text-center w-full">
-            <h3 className="text-lg sm:text-xl md:text-2xl font-heading uppercase tracking-wide-heading text-accent-orange mb-2" style={{ fontStyle: 'oblique' }}>
-              Review Game Result
-            </h3>
-            <p className="text-xs text-gray-500">Confirm winner and scores before saving</p>
-          </div>
+      <Space direction="vertical" size={20} style={{ width: '100%' }}>
+        <Text type="secondary" style={{ display: 'block', textAlign: 'center', fontSize: '13px' }}>
+          {scoringRequired ? 'Confirm winner and scores before saving' : 'Confirm winner before saving'}
+        </Text>
 
-          {/* Teams Display */}
-          <div className="w-full flex flex-col items-center space-y-2 py-2">
-            <div className="text-base sm:text-lg md:text-xl font-bold text-dark-near-black text-center truncate">{getTeamName(game.teamA)}</div>
-            <div className="text-sm sm:text-base md:text-lg font-heading uppercase tracking-wide-heading text-sport-green" style={{ fontStyle: 'oblique' }}>
-              VS
-            </div>
-            <div className="text-base sm:text-lg md:text-xl font-bold text-dark-near-black text-center truncate">{getTeamName(game.teamB)}</div>
-          </div>
-
-          {/* Scores Input */}
-          <div className="w-full grid grid-cols-2 gap-4">
-            <div className="flex flex-col items-center">
-              <label className="block text-xs font-medium mb-2 text-center text-gray-700 uppercase tracking-wide">
-                {getTeamName(game.teamA)} Score
-              </label>
-              <input
-                type="number"
-                value={scoreA}
-                onChange={(e) => setScoreA(e.target.value)}
-                onBlur={(e) => {
-                  if (e.target.value === '') {
-                    setScoreA('0');
-                  }
-                }}
-                className="w-full px-3 sm:px-4 py-2 border-2 border-gray-300 rounded-lg text-center text-base sm:text-lg font-bold text-dark-near-black focus:outline-none focus:ring-2 focus:ring-accent-orange focus:border-accent-orange transition-all"
-                min="0"
-              />
-            </div>
-            <div className="flex flex-col items-center">
-              <label className="block text-xs font-medium mb-2 text-center text-gray-700 uppercase tracking-wide">
-                {getTeamName(game.teamB)} Score
-              </label>
-              <input
-                type="number"
-                value={scoreB}
-                onChange={(e) => setScoreB(e.target.value)}
-                onBlur={(e) => {
-                  if (e.target.value === '') {
-                    setScoreB('0');
-                  }
-                }}
-                className="w-full px-3 sm:px-4 py-2 border-2 border-gray-300 rounded-lg text-center text-base sm:text-lg font-bold text-dark-near-black focus:outline-none focus:ring-2 focus:ring-accent-orange focus:border-accent-orange transition-all"
-                min="0"
-              />
-            </div>
-          </div>
-
-          {/* Winner Selection */}
-          <div className="w-full flex flex-col items-center">
-            <label className="block text-xs font-medium mb-2 text-center text-gray-700 uppercase tracking-wide">Winner</label>
-            <select
-              value={winnerId}
-              onChange={(e) => setWinnerId(e.target.value)}
-              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg text-center text-base font-semibold text-dark-near-black focus:outline-none focus:ring-2 focus:ring-accent-orange focus:border-accent-orange transition-all"
-            >
-              <option value="">Select winner...</option>
-              {teamAId && (
-                <option value={teamAId}>{getTeamName(game.teamA)}</option>
-              )}
-              {teamBId && (
-                <option value={teamBId}>{getTeamName(game.teamB)}</option>
-              )}
-            </select>
-          </div>
-
-          {/* Results Summary Box */}
-          {winnerId && getNumericScoreA() >= 0 && getNumericScoreB() >= 0 && (
-            <div className="w-full bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-300 rounded-lg p-4 shadow-inner">
-              <div className="space-y-3 text-center">
-                <div>
-                  <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Winner</div>
-                  <div className="text-lg font-bold text-dark-near-black">{getWinnerName()}</div>
-                </div>
-                <div className="border-t border-gray-300 pt-3">
-                  <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Score</div>
-                  <div className="text-base font-bold text-dark-near-black">
-                    {getTeamName(game.teamA)} {getNumericScoreA()} - {getNumericScoreB()} {getTeamName(game.teamB)}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Validation Warnings */}
-          {!isWinnerValid() && winnerId && (
-            <div className="w-full text-xs text-red-600 bg-red-50 p-3 rounded-lg border-2 border-red-200 text-center">
-              ⚠️ Winner must match the higher score and scores cannot be equal.
-            </div>
-          )}
-          {getNumericScoreA() === getNumericScoreB() && getNumericScoreA() > 0 && (
-            <div className="w-full text-xs text-red-600 bg-red-50 p-3 rounded-lg border-2 border-red-200 text-center">
-              ⚠️ Scores cannot be equal. There must be a winner.
-            </div>
-          )}
-
-          {/* Final Warning */}
-          <div className="w-full text-xs text-orange-700 bg-orange-50 p-3 rounded-lg border-2 border-orange-200 text-center flex items-center justify-center gap-2">
-            <span>⚠️</span>
-            <span>Warning: This cannot be changed once you click Submit</span>
-          </div>
-
-          {/* Buttons */}
-          <div className="w-full grid grid-cols-3 gap-3 pt-2">
-            <button 
-              onClick={handleSave} 
-              className={`w-full px-4 py-2 rounded-lg font-heading uppercase tracking-wide-heading text-sm transition-all ${
-                isWinnerValid()
-                  ? 'btn-primary hover:shadow-lg'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-              disabled={!isWinnerValid()}
-              style={{ fontStyle: 'oblique' }}
-            >
-              Submit
-            </button>
-            <button 
-              onClick={() => setWinnerId('')} 
-              className="btn-secondary w-full px-4 py-2 rounded-lg font-heading uppercase tracking-wide-heading text-sm hover:shadow-lg transition-all"
-              style={{ fontStyle: 'oblique' }}
-            >
-              Edit
-            </button>
-            <button 
-              onClick={onClose} 
-              className="btn-secondary w-full px-4 py-2 rounded-lg font-heading uppercase tracking-wide-heading text-sm hover:shadow-lg transition-all"
-              style={{ fontStyle: 'oblique' }}
-            >
-              Cancel
-            </button>
-          </div>
+        {/* Teams Display */}
+        <div style={{ textAlign: 'center', padding: '16px 0' }}>
+          <Text strong style={{ fontSize: '20px', display: 'block', marginBottom: '12px' }}>
+            {getTeamName(game.teamA)}
+          </Text>
+          <Text strong style={{ fontSize: '16px', color: '#16a34a', fontWeight: 700, display: 'block', margin: '8px 0' }}>
+            VS
+          </Text>
+          <Text strong style={{ fontSize: '20px', display: 'block', marginTop: '12px' }}>
+            {getTeamName(game.teamB)}
+          </Text>
         </div>
-      </div>
-    </div>
+
+        {/* Scores Input - Only show if scoring is required */}
+        {scoringRequired && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
+            <div style={{ textAlign: 'center', maxWidth: '200px' }}>
+              <Text style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '8px', color: '#6b7280' }}>
+                {getTeamName(game.teamA)} Score
+              </Text>
+              <InputNumber
+                value={scoreA ? parseInt(scoreA) : undefined}
+                onChange={(value) => setScoreA(value?.toString() || '0')}
+                min={0}
+                size="large"
+                controls={true}
+                className="score-input-centered"
+                style={{
+                  width: '100%',
+                  fontSize: '18px',
+                  fontWeight: 700,
+                }}
+              />
+            </div>
+            <div style={{ textAlign: 'center', maxWidth: '200px' }}>
+              <Text style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '8px', color: '#6b7280' }}>
+                {getTeamName(game.teamB)} Score
+              </Text>
+              <InputNumber
+                value={scoreB ? parseInt(scoreB) : undefined}
+                onChange={(value) => setScoreB(value?.toString() || '0')}
+                min={0}
+                size="large"
+                controls={true}
+                className="score-input-centered"
+                style={{
+                  width: '100%',
+                  fontSize: '18px',
+                  fontWeight: 700,
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Winner Selection */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <Text style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '8px', textAlign: 'center', color: '#6b7280' }}>
+            Winner
+          </Text>
+          <Select
+            value={winnerId || undefined}
+            onChange={(value) => setWinnerId(value)}
+            placeholder="Select winner..."
+            size="large"
+            style={{
+              width: 'auto',
+              minWidth: '150px',
+              maxWidth: '250px',
+              fontSize: '15px',
+              fontWeight: 600,
+            }}
+            className="winner-select-centered"
+            dropdownStyle={{ maxWidth: '250px' }}
+          >
+            {teamAId && (
+              <Select.Option value={teamAId}>{getTeamName(game.teamA)}</Select.Option>
+            )}
+            {teamBId && (
+              <Select.Option value={teamBId}>{getTeamName(game.teamB)}</Select.Option>
+            )}
+          </Select>
+        </div>
+
+        {/* Validation Warnings - Only show if scoring is required */}
+        {scoringRequired && !isWinnerValid() && winnerId && (
+          <Alert
+            message="Invalid Result: Winner must match the higher score and scores cannot be equal."
+            type="error"
+            showIcon
+            style={{ borderRadius: '8px', fontSize: '12px', textAlign: 'center' }}
+          />
+        )}
+        {scoringRequired && getNumericScoreA() === getNumericScoreB() && getNumericScoreA() > 0 && (
+          <Alert
+            message="Tie Game: Scores cannot be equal. There must be a winner."
+            type="error"
+            showIcon
+            style={{ borderRadius: '8px', fontSize: '12px', textAlign: 'center' }}
+          />
+        )}
+
+        {/* Final Warning */}
+        <Alert
+          message="Warning: This cannot be changed once you click Submit"
+          type="warning"
+          showIcon
+          style={{ borderRadius: '8px', fontSize: '12px', textAlign: 'center' }}
+        />
+
+        {/* Buttons */}
+        <Space size={12} style={{ width: '100%', justifyContent: 'center' }}>
+          <Button
+            type="primary"
+            onClick={handleSave}
+            disabled={!isWinnerValid()}
+            size="large"
+            style={{
+              borderRadius: '8px',
+              fontSize: '14px',
+              height: '44px',
+              fontWeight: 600,
+              minWidth: '100px',
+              background: isWinnerValid() 
+                ? 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)' 
+                : '#d1d5db',
+              border: 'none',
+              boxShadow: isWinnerValid() ? '0 2px 8px rgba(249, 115, 22, 0.3)' : 'none',
+            }}
+          >
+            Submit
+          </Button>
+          <Button
+            onClick={() => setWinnerId('')}
+            size="large"
+            style={{
+              borderRadius: '8px',
+              fontSize: '14px',
+              height: '44px',
+              fontWeight: 600,
+              minWidth: '100px',
+            }}
+          >
+            Reset
+          </Button>
+          <Button
+            onClick={onClose}
+            size="large"
+            style={{
+              borderRadius: '8px',
+              fontSize: '14px',
+              height: '44px',
+              fontWeight: 600,
+              minWidth: '100px',
+            }}
+          >
+            Cancel
+          </Button>
+        </Space>
+      </Space>
+    </Modal>
+    </>
   );
 }
 

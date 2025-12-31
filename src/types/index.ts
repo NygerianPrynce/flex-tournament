@@ -64,7 +64,8 @@ export interface Game {
   scheduledOrder: number;
   status: GameStatus;
   timers: TimerState;
-  refId?: string;
+  refId?: string; // Deprecated: kept for backward compatibility, use refIds instead
+  refIds?: string[]; // Array of referee IDs assigned to this game
   result?: GameResult;
 }
 
@@ -72,6 +73,8 @@ export interface Bracket {
   winners: Game[][];
   losers: Game[][];
   grandFinal?: Game;
+  grandFinalReset?: Game;
+  resetGames?: Game[]; // Additional reset games for 2-team double elimination (best-of-3 style)
 }
 
 export interface TournamentSettings {
@@ -84,6 +87,8 @@ export interface TournamentSettings {
   includeLosersBracket: boolean;
   openSlotPolicy: 'BYE' | 'OPEN';
   useRefs?: boolean; // true if refs are enabled, false/undefined to disable
+  refereesPerGame?: number; // Number of referees required per game (default: 0)
+  scoringRequired?: boolean; // true if scores are required, false if winner-only (default: true)
 }
 
 export interface Tournament {

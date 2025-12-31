@@ -4,6 +4,27 @@ import { calculateTournamentDuration } from '../lib/tournamentDuration';
 import { useSport } from '../hooks/useSport';
 import { getTournament } from '../lib/database';
 import type { Tournament } from '../types';
+import {
+  Layout,
+  Typography,
+  Card,
+  Button,
+  Input,
+  Space,
+  Alert,
+  message,
+} from 'antd';
+import {
+  InfoCircleOutlined,
+  CopyOutlined,
+  CheckOutlined,
+  CalendarOutlined,
+  ClockCircleOutlined,
+  SettingOutlined,
+} from '@ant-design/icons';
+
+const { Content } = Layout;
+const { Title, Text } = Typography;
 
 interface TournamentInfoProps {
   tournament?: Tournament;
@@ -30,24 +51,16 @@ export function TournamentInfo({ tournament: propTournament, viewerMode: _viewer
   useEffect(() => {
     if (!tournament) return;
     
-    console.log('TournamentInfo: Tournament ID:', tournament.id);
-    console.log('TournamentInfo: Has shareCode:', tournament.shareCode);
-    
     // Check if tournament has database ID (not localStorage tournament)
     const hasDatabaseId = tournament.id && !tournament.id.startsWith('tournament-');
-    console.log('TournamentInfo: Has database ID:', hasDatabaseId);
-    console.log('TournamentInfo: Tournament ID starts with tournament-:', tournament.id?.startsWith('tournament-'));
     
     // If it's a database tournament and we don't have shareCode, or if we want to refresh it
     if (hasDatabaseId && !loadingShareCode) {
-      console.log('TournamentInfo: Loading share code for tournament:', tournament.id);
       setLoadingShareCode(true);
       
       getTournament(tournament.id)
         .then((updatedTournament) => {
-          console.log('TournamentInfo: Got tournament from DB:', updatedTournament);
           if (updatedTournament) {
-            console.log('TournamentInfo: ShareCode from DB:', updatedTournament.shareCode);
             // Update tournament with shareCode if it exists
             setTournament(updatedTournament);
           }
@@ -58,26 +71,50 @@ export function TournamentInfo({ tournament: propTournament, viewerMode: _viewer
         .finally(() => {
           setLoadingShareCode(false);
         });
-    } else {
-      console.log('TournamentInfo: Skipping load - hasDatabaseId:', hasDatabaseId, 'loadingShareCode:', loadingShareCode);
     }
   }, [tournament?.id, setTournament]);
   
   if (!tournament) {
-    return <div className="p-8">No tournament loaded</div>;
+    return <div style={{ padding: '32px' }}>No tournament loaded</div>;
   }
   
   // Check if tournament is complete
   const isTournamentComplete = () => {
     if (!tournament.bracket) return false;
     
-    // Check if grand final is finished
-    if (tournament.bracket.grandFinal) {
-      return tournament.bracket.grandFinal.status === 'Finished' && tournament.bracket.grandFinal.result;
+    // First check: if there are 0 remaining games, tournament is complete
+    const remainingGames = getRemainingGames();
+    if (remainingGames === 0) {
+      return true;
     }
     
-    // Check if final round of winners bracket is finished
-    if (tournament.bracket.winners.length > 0) {
+    // Check if grand final reset is finished (if it exists and was played)
+    if (tournament.bracket.grandFinalReset && 
+        tournament.bracket.grandFinalReset.status === 'Finished' && 
+        tournament.bracket.grandFinalReset.result) {
+      return true;
+    }
+    
+    // Check if grand final is finished AND winners bracket champion won (no reset needed)
+    if (tournament.bracket.grandFinal) {
+      const gf = tournament.bracket.grandFinal;
+      if (gf.status === 'Finished' && gf.result) {
+        // If winners bracket champion won (teamA), tournament is complete
+        // If losers bracket champion won (teamB), reset game should be played
+        const winnerCameFromLosers = gf.teamB.type === 'Team' && gf.teamB.teamId === gf.result.winnerId;
+        if (!winnerCameFromLosers) {
+          // Winners bracket champion won - tournament complete
+          return true;
+        }
+        // Losers bracket champion won - check if reset is finished
+        if (tournament.bracket.grandFinalReset) {
+          return tournament.bracket.grandFinalReset.status === 'Finished' && tournament.bracket.grandFinalReset.result;
+        }
+      }
+    }
+    
+    // Check if final round of winners bracket is finished (single elimination)
+    if (tournament.bracket.winners.length > 0 && !tournament.bracket.grandFinal) {
       const finalRound = tournament.bracket.winners[tournament.bracket.winners.length - 1];
       return finalRound.every(game => game.status === 'Finished' && game.result);
     }
@@ -85,13 +122,42 @@ export function TournamentInfo({ tournament: propTournament, viewerMode: _viewer
     return false;
   };
   
+  // Calculate remaining games based on current bracket state
+  const getRemainingGames = () => {
+    if (!tournament.bracket) return 0;
+    
+    const allGames = getAllGames();
+    // Filter out BYE vs BYE games and games that are finished
+    const unfinishedGames = allGames.filter(g => {
+      // Exclude BYE vs BYE games
+      if (g.teamA.type === 'BYE' && g.teamB.type === 'BYE') {
+        return false;
+      }
+      return g.status !== 'Finished';
+    });
+    return unfinishedGames.length;
+  };
+
   // Get actual completion time (when final game finished)
   const getActualCompletionTime = () => {
     if (!tournament.bracket) return null;
     
     let finalGame = null;
-    if (tournament.bracket.grandFinal && tournament.bracket.grandFinal.status === 'Finished' && tournament.bracket.grandFinal.result) {
-      finalGame = tournament.bracket.grandFinal;
+    // Check grand final reset first (if it exists and is finished, it's the true final game)
+    if (tournament.bracket.grandFinalReset && 
+        tournament.bracket.grandFinalReset.status === 'Finished' && 
+        tournament.bracket.grandFinalReset.result) {
+      finalGame = tournament.bracket.grandFinalReset;
+    } else if (tournament.bracket.grandFinal && 
+               tournament.bracket.grandFinal.status === 'Finished' && 
+               tournament.bracket.grandFinal.result) {
+      // Check if winners bracket champion won (no reset needed)
+      const gf = tournament.bracket.grandFinal;
+      const winnerCameFromLosers = gf.teamB.type === 'Team' && gf.teamB.teamId === gf.result.winnerId;
+      // Only use grand final as final game if winners bracket champion won (no reset)
+      if (!winnerCameFromLosers) {
+        finalGame = tournament.bracket.grandFinal;
+      }
     } else if (tournament.bracket.winners.length > 0) {
       const finalRound = tournament.bracket.winners[tournament.bracket.winners.length - 1];
       finalGame = finalRound.find(g => g.status === 'Finished' && g.result);
@@ -107,13 +173,30 @@ export function TournamentInfo({ tournament: propTournament, viewerMode: _viewer
   const tournamentComplete = isTournamentComplete();
   const actualCompletionTime = getActualCompletionTime();
   
+  // Store the completion time when tournament becomes complete (to stop the clock)
+  const [frozenCompletionTime, setFrozenCompletionTime] = useState<number | null>(null);
+  
+  useEffect(() => {
+    // Freeze timer when tournament is complete (which now includes 0 remaining games check)
+    if (tournamentComplete && actualCompletionTime) {
+      // Freeze the completion time when tournament becomes complete
+      setFrozenCompletionTime(actualCompletionTime.getTime());
+    } else if (tournamentComplete && !actualCompletionTime && frozenCompletionTime === null) {
+      // Tournament is complete but we don't have completion time - use current time as fallback
+      setFrozenCompletionTime(currentTime);
+    } else if (!tournamentComplete) {
+      // Tournament is not complete - reset frozen time
+      setFrozenCompletionTime(null);
+    }
+  }, [tournamentComplete, actualCompletionTime, currentTime, frozenCompletionTime]);
+  
   // Calculate time elapsed since tournament started
   const getElapsedTime = () => {
-    if (tournamentComplete && actualCompletionTime) {
-      // If complete, show time from start to completion
-      return actualCompletionTime.getTime() - tournament.createdAt;
+    if (tournamentComplete && frozenCompletionTime !== null) {
+      // If complete, show time from start to completion (frozen)
+      return frozenCompletionTime - tournament.createdAt;
     }
-    // Otherwise, show time from start to now
+    // Otherwise, show time from start to now (updating)
     return currentTime - tournament.createdAt;
   };
   
@@ -133,14 +216,6 @@ export function TournamentInfo({ tournament: propTournament, viewerMode: _viewer
     }
   };
   
-  // Calculate remaining games based on current bracket state
-  const getRemainingGames = () => {
-    if (!tournament.bracket) return 0;
-    
-    const allGames = getAllGames();
-    const unfinishedGames = allGames.filter(g => g.status !== 'Finished');
-    return unfinishedGames.length;
-  };
   
   // Calculate estimated remaining time based on current status
   const calculateRemainingTime = () => {
@@ -259,6 +334,7 @@ export function TournamentInfo({ tournament: propTournament, viewerMode: _viewer
       if (success) {
         setCopiedCode(true);
         setTimeout(() => setCopiedCode(false), 2000);
+        message.success('Share code copied to clipboard!');
       }
     }
   };
@@ -269,253 +345,416 @@ export function TournamentInfo({ tournament: propTournament, viewerMode: _viewer
       if (success) {
         setCopiedUrl(true);
         setTimeout(() => setCopiedUrl(false), 2000);
+        message.success('Share URL copied to clipboard!');
       }
     }
   };
   
   return (
-    <div className="p-3 sm:p-4 md:p-6 lg:p-8 bg-light-off-white min-h-screen overflow-x-hidden">
-      <div className="max-w-4xl mx-auto">
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading uppercase tracking-wide-heading text-accent-orange mb-4 sm:mb-6 md:mb-8" style={{ fontStyle: 'oblique' }}>
-          Tournament Info
-        </h2>
+    <Layout style={{ minHeight: '100vh', background: '#f5f5f5' }}>
+      <Content style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
+        <div style={{ marginBottom: '24px' }}>
+          <Title level={2} style={{ 
+            margin: 0, 
+            fontWeight: 700, 
+            fontSize: '32px',
+            color: '#f97316',
+            fontFamily: 'Poppins, sans-serif',
+          }}>
+            <InfoCircleOutlined style={{ marginRight: '12px' }} />
+            Tournament Info
+          </Title>
+        </div>
         
-        <div className="space-y-6">
+        <Space direction="vertical" size={24} style={{ width: '100%' }}>
           {/* Share Code Card - Show if tournament has database ID (not localStorage) */}
           {tournament.id && !tournament.id.startsWith('tournament-') && (
-            <div className="card bg-gradient-to-r from-accent-orange/10 to-secondary-orange/10 border-2 border-accent-orange/30">
-              <h3 className="text-xl font-heading uppercase tracking-wide-heading text-dark-charcoal mb-4 pb-2 border-b-2 border-accent-orange" style={{ fontStyle: 'oblique' }}>
+            <Card
+              style={{
+                borderRadius: '16px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                border: '2px solid #f97316',
+                background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
+              }}
+              bodyStyle={{ padding: '24px' }}
+            >
+              <Title level={4} style={{ 
+                marginBottom: '20px', 
+                fontWeight: 700,
+                color: '#f97316',
+                borderBottom: '2px solid #f97316',
+                paddingBottom: '12px',
+              }}>
                 Share Tournament
-              </h3>
-              <div className="space-y-4">
+              </Title>
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
                 {loadingShareCode ? (
-                  <div className="text-center py-4 text-gray-600">
+                  <div style={{ textAlign: 'center', padding: '24px', color: '#6b7280' }}>
                     Loading share code...
                   </div>
                 ) : tournament.shareCode ? (
                   <>
                     <div>
-                      <span className="text-sm text-gray-500 uppercase tracking-wide block mb-2">Share Code</span>
-                      <div className="flex items-center gap-3">
-                        <code className="flex-1 px-4 py-3 bg-white border-2 border-accent-orange rounded-lg text-lg font-mono font-bold text-dark-near-black tracking-wider">
-                          {tournament.shareCode}
-                        </code>
-                        <button
+                      <Text strong style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#6b7280' }}>
+                        Share Code
+                      </Text>
+                      <Space.Compact style={{ width: '100%' }}>
+                        <Input
+                          value={tournament.shareCode}
+                          readOnly
+                          style={{
+                            fontFamily: 'monospace',
+                            fontSize: '18px',
+                            fontWeight: 700,
+                            textAlign: 'center',
+                            letterSpacing: '2px',
+                          }}
+                        />
+                        <Button
+                          type="primary"
+                          icon={copiedCode ? <CheckOutlined /> : <CopyOutlined />}
                           onClick={handleCopyCode}
-                          className="btn-primary whitespace-nowrap"
+                          style={{
+                            background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                            border: 'none',
+                            borderRadius: '0 8px 8px 0',
+                            fontWeight: 600,
+                          }}
                         >
-                          {copiedCode ? 'Copied!' : 'Copy Code'}
-                        </button>
-                      </div>
+                          {copiedCode ? 'Copied!' : 'Copy'}
+                        </Button>
+                      </Space.Compact>
                     </div>
+                    {shareUrl && (
+                      <div>
+                        <Text strong style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#6b7280' }}>
+                          Share URL
+                        </Text>
+                        <Space.Compact style={{ width: '100%' }}>
+                          <Input
+                            value={shareUrl}
+                            readOnly
+                            style={{
+                              fontFamily: 'monospace',
+                              fontSize: '13px',
+                            }}
+                          />
+                          <Button
+                            type="primary"
+                            icon={copiedUrl ? <CheckOutlined /> : <CopyOutlined />}
+                            onClick={handleCopyUrl}
+                            style={{
+                              background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                              border: 'none',
+                              borderRadius: '0 8px 8px 0',
+                              fontWeight: 600,
+                            }}
+                          >
+                            {copiedUrl ? 'Copied!' : 'Copy'}
+                          </Button>
+                        </Space.Compact>
+                      </div>
+                    )}
+                    <Alert
+                      message="Share this code or URL with others to let them view the tournament in read-only mode. They won't be able to make changes."
+                      type="info"
+                      showIcon
+                      style={{ borderRadius: '8px' }}
+                    />
                   </>
                 ) : (
-                  <div className="text-center py-4 text-gray-600">
+                  <div style={{ textAlign: 'center', padding: '24px', color: '#6b7280' }}>
                     Share code not available for this tournament.
                   </div>
                 )}
-                {tournament.shareCode && shareUrl && (
-                  <div>
-                    <span className="text-sm text-gray-500 uppercase tracking-wide block mb-2">Share URL</span>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="text"
-                        value={shareUrl}
-                        readOnly
-                        className="flex-1 px-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-sm font-mono text-dark-near-black"
-                      />
-                      <button
-                        onClick={handleCopyUrl}
-                        className="btn-primary whitespace-nowrap"
-                      >
-                        {copiedUrl ? 'Copied!' : 'Copy URL'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-                <div className="text-sm text-gray-600 bg-white/50 p-3 rounded-lg border border-gray-200">
-                  Share this code or URL with others to let them view the tournament in read-only mode. They won't be able to make changes.
-                </div>
-              </div>
-            </div>
+              </Space>
+            </Card>
           )}
           
           {/* Tournament Information Card */}
-          <div className="card">
-            <h3 className="text-xl font-heading uppercase tracking-wide-heading text-dark-charcoal mb-4 pb-2 border-b-2 border-accent-orange" style={{ fontStyle: 'oblique' }}>
+          <Card
+            style={{
+              borderRadius: '16px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #e5e7eb',
+            }}
+            bodyStyle={{ padding: '24px' }}
+          >
+            <Title level={4} style={{ 
+              marginBottom: '20px', 
+              fontWeight: 700,
+              borderBottom: '2px solid #f97316',
+              paddingBottom: '12px',
+            }}>
               Tournament Information
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-gray-700">
-              <div className="space-y-3">
+            </Title>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
                 <div>
-                  <span className="text-sm text-gray-500 uppercase tracking-wide">Name</span>
-                  <div className="text-lg font-semibold text-dark-near-black mt-1">{tournament.name}</div>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: '4px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Name
+                  </Text>
+                  <Text strong style={{ fontSize: '18px', display: 'block' }}>
+                    {tournament.name}
+                  </Text>
                 </div>
                 <div>
-                  <span className="text-sm text-gray-500 uppercase tracking-wide">Format</span>
-                  <div className="text-lg font-semibold text-dark-near-black mt-1">
+                  <Text type="secondary" style={{ display: 'block', marginBottom: '4px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Format
+                  </Text>
+                  <Text strong style={{ fontSize: '18px', display: 'block' }}>
                     {tournament.settings.includeLosersBracket ? 'Double Elimination' : 'Single Elimination'}
-                  </div>
+                  </Text>
                 </div>
                 <div>
-                  <span className="text-sm text-gray-500 uppercase tracking-wide">Teams</span>
-                  <div className="text-lg font-semibold text-dark-near-black mt-1">{tournament.teams.length}</div>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: '4px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Teams
+                  </Text>
+                  <Text strong style={{ fontSize: '18px', display: 'block' }}>
+                    {tournament.teams.length}
+                  </Text>
                 </div>
-              </div>
-              <div className="space-y-3">
+              </Space>
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
                 <div>
-                  <span className="text-sm text-gray-500 uppercase tracking-wide">{venueTermPlural}</span>
-                  <div className="text-lg font-semibold text-dark-near-black mt-1">{tournament.settings.numberOfCourts}</div>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: '4px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {venueTermPlural}
+                  </Text>
+                  <Text strong style={{ fontSize: '18px', display: 'block' }}>
+                    {tournament.settings.numberOfCourts}
+                  </Text>
                 </div>
                 {tournament.bracket && (
                   <>
                     <div>
-                      <span className="text-sm text-gray-500 uppercase tracking-wide">Rounds</span>
-                      <div className="text-lg font-semibold text-dark-near-black mt-1">{duration.roundsCount}</div>
+                      <Text type="secondary" style={{ display: 'block', marginBottom: '4px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Rounds
+                      </Text>
+                      <Text strong style={{ fontSize: '18px', display: 'block' }}>
+                        {duration.roundsCount}
+                      </Text>
                     </div>
                     <div>
-                      <span className="text-sm text-gray-500 uppercase tracking-wide">Total Games</span>
-                      <div className="text-lg font-semibold text-dark-near-black mt-1">{duration.gamesCount}</div>
+                      <Text type="secondary" style={{ display: 'block', marginBottom: '4px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Total Games
+                      </Text>
+                      <Text strong style={{ fontSize: '18px', display: 'block' }}>
+                        {duration.gamesCount}
+                      </Text>
                     </div>
                   </>
                 )}
                 <div>
-                  <span className="text-sm text-gray-500 uppercase tracking-wide">Created</span>
-                  <div className="text-sm text-gray-600 mt-1">{new Date(tournament.createdAt).toLocaleString()}</div>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: '4px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Created
+                  </Text>
+                  <Text style={{ fontSize: '14px', display: 'block', color: '#6b7280' }}>
+                    <CalendarOutlined style={{ marginRight: '6px' }} />
+                    {new Date(tournament.createdAt).toLocaleString()}
+                  </Text>
                 </div>
-              </div>
+              </Space>
             </div>
-          </div>
+          </Card>
           
           {/* Tournament Status Card */}
           {tournament.bracket && (
-            <div className="card">
-              <h3 className="text-xl font-heading uppercase tracking-wide-heading text-dark-charcoal mb-4 pb-2 border-b-2 border-accent-orange" style={{ fontStyle: 'oblique' }}>
+            <Card
+              style={{
+                borderRadius: '16px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+              }}
+              bodyStyle={{ padding: '24px' }}
+            >
+              <Title level={4} style={{ 
+                marginBottom: '20px', 
+                fontWeight: 700,
+                borderBottom: '2px solid #f97316',
+                paddingBottom: '12px',
+              }}>
                 Tournament Status
-              </h3>
+              </Title>
               {tournamentComplete ? (
-                <div className="space-y-4">
-                  <div className="p-6 bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-300 rounded-lg">
-                    <div className="text-green-800 font-heading uppercase tracking-wide-heading text-2xl mb-2" style={{ fontStyle: 'oblique' }}>
-                      Tournament Complete!
-                    </div>
-                    {actualCompletionTime && (
-                      <div className="text-green-700 font-semibold">
-                        Completed: {actualCompletionTime.toLocaleString()}
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500 uppercase tracking-wide">Time Elapsed:</span>
-                      <span className="text-lg font-semibold text-dark-near-black">{formatElapsedTime()}</span>
+                <Space direction="vertical" size={20} style={{ width: '100%' }}>
+                  <Alert
+                    message={
+                      <Space direction="vertical" size={4}>
+                        <Text strong style={{ fontSize: '20px', color: '#16a34a' }}>
+                          Tournament Complete!
+                        </Text>
+                        {actualCompletionTime && (
+                          <Text style={{ fontSize: '14px', color: '#16a34a' }}>
+                            Completed: {actualCompletionTime.toLocaleString()}
+                          </Text>
+                        )}
+                      </Space>
+                    }
+                    type="success"
+                    showIcon
+                    style={{ borderRadius: '12px', padding: '20px' }}
+                  />
+                  <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text type="secondary" style={{ fontSize: '14px' }}>Time Elapsed:</Text>
+                      <Text strong style={{ fontSize: '18px' }}>
+                        <ClockCircleOutlined style={{ marginRight: '6px' }} />
+                        {formatElapsedTime()}
+                      </Text>
                     </div>
                     {actualTotalDuration && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500 uppercase tracking-wide">Total Duration:</span>
-                        <span className="text-lg font-semibold text-dark-near-black">{actualTotalDuration}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text type="secondary" style={{ fontSize: '14px' }}>Total Duration:</Text>
+                        <Text strong style={{ fontSize: '18px' }}>{actualTotalDuration}</Text>
                       </div>
                     )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500 uppercase tracking-wide">Initial Estimate:</span>
-                      <span className="text-lg font-semibold text-dark-near-black">{duration.formatted}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text type="secondary" style={{ fontSize: '14px' }}>Initial Estimate:</Text>
+                      <Text strong style={{ fontSize: '18px' }}>{duration.formatted}</Text>
                     </div>
-                  </div>
-                </div>
+                  </Space>
+                </Space>
               ) : (
-                <div className="space-y-4">
-                  <div className="p-6 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg">
-                    <div className="text-blue-800 font-heading uppercase tracking-wide-heading text-xl mb-2" style={{ fontStyle: 'oblique' }}>
-                      Tournament In Progress
+                <Space direction="vertical" size={20} style={{ width: '100%' }}>
+                  <Alert
+                    message={
+                      <Space direction="vertical" size={8}>
+                        <Text strong style={{ fontSize: '18px', color: '#3b82f6' }}>
+                          Tournament In Progress
+                        </Text>
+                        <Text strong style={{ fontSize: '32px', color: '#1e40af', display: 'block' }}>
+                          {formatElapsedTime()}
+                        </Text>
+                        <Text style={{ fontSize: '14px', color: '#3b82f6' }}>Time Elapsed</Text>
+                      </Space>
+                    }
+                    type="info"
+                    showIcon
+                    style={{ borderRadius: '12px', padding: '20px' }}
+                  />
+                  <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text type="secondary" style={{ fontSize: '14px' }}>Initial Estimated Total Time:</Text>
+                      <Text strong style={{ fontSize: '18px' }}>{duration.formatted}</Text>
                     </div>
-                    <div className="text-2xl font-bold text-blue-900 mt-3">
-                      {formatElapsedTime()}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text type="secondary" style={{ fontSize: '14px' }}>Remaining Games:</Text>
+                      <Text strong style={{ fontSize: '18px' }}>{getRemainingGames()}</Text>
                     </div>
-                    <div className="text-sm text-blue-700 mt-1">Time Elapsed</div>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500 uppercase tracking-wide">Initial Estimated Total Time:</span>
-                      <span className="text-lg font-semibold text-dark-near-black">{duration.formatted}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500 uppercase tracking-wide">Remaining Games:</span>
-                      <span className="text-lg font-semibold text-dark-near-black">{getRemainingGames()}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500 uppercase tracking-wide">Estimated Remaining Time:</span>
-                      <span className="text-lg font-semibold text-accent-orange">{remainingTime.formatted}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text type="secondary" style={{ fontSize: '14px' }}>Estimated Remaining Time:</Text>
+                      <Text strong style={{ fontSize: '18px', color: '#f97316' }}>{remainingTime.formatted}</Text>
                     </div>
                     {estimatedFinishTime && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500 uppercase tracking-wide">Estimated Finish Time:</span>
-                        <span className="text-lg font-semibold text-dark-near-black">{estimatedFinishTime.toLocaleTimeString()}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text type="secondary" style={{ fontSize: '14px' }}>Estimated Finish Time:</Text>
+                        <Text strong style={{ fontSize: '18px' }}>{estimatedFinishTime.toLocaleTimeString()}</Text>
                       </div>
                     )}
-                    <div className="text-sm text-gray-600 mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      Based on {tournament.settings.numberOfCourts} {venueTermPlural.toLowerCase()}, {getRemainingGames()} remaining game(s). 
-                      Includes warmup ({tournament.settings.warmupMinutes} min), 
-                      game time ({tournament.settings.gameLengthMinutes} min), and flex time ({tournament.settings.flexMinutes} min) per game.
-                    </div>
-                  </div>
-                </div>
+                    <Alert
+                      message={`Based on ${tournament.settings.numberOfCourts} ${venueTermPlural.toLowerCase()}, ${getRemainingGames()} remaining game(s). Includes warmup (${tournament.settings.warmupMinutes} min), game time (${tournament.settings.gameLengthMinutes} min), and flex time (${tournament.settings.flexMinutes} min) per game.`}
+                      type="info"
+                      showIcon={false}
+                      style={{ borderRadius: '8px', marginTop: '8px' }}
+                    />
+                  </Space>
+                </Space>
               )}
-            </div>
+            </Card>
           )}
           
           {/* Estimated Duration Card (if no bracket) */}
           {!tournament.bracket && (
-            <div className="card">
-              <h3 className="text-xl font-heading uppercase tracking-wide-heading text-dark-charcoal mb-4 pb-2 border-b-2 border-accent-orange" style={{ fontStyle: 'oblique' }}>
+            <Card
+              style={{
+                borderRadius: '16px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+              }}
+              bodyStyle={{ padding: '24px' }}
+            >
+              <Title level={4} style={{ 
+                marginBottom: '20px', 
+                fontWeight: 700,
+                borderBottom: '2px solid #f97316',
+                paddingBottom: '12px',
+              }}>
                 Estimated Duration
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500 uppercase tracking-wide">Estimated Length:</span>
-                  <span className="text-lg font-semibold text-dark-near-black">{duration.formatted}</span>
+              </Title>
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <Text type="secondary" style={{ fontSize: '14px' }}>Estimated Length:</Text>
+                  <Text strong style={{ fontSize: '18px' }}>{duration.formatted}</Text>
                 </div>
-                <div className="text-sm text-gray-600 mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  Based on {tournament.settings.numberOfCourts} {venueTermPlural.toLowerCase()}, {duration.gamesCount} game(s), 
-                  and {duration.roundsCount} round(s). Includes warmup ({tournament.settings.warmupMinutes} min), 
-                  game time ({tournament.settings.gameLengthMinutes} min), and flex time ({tournament.settings.flexMinutes} min) per game.
-                </div>
-              </div>
-            </div>
+                <Alert
+                  message={`Based on ${tournament.settings.numberOfCourts} ${venueTermPlural.toLowerCase()}, ${duration.gamesCount} game(s), and ${duration.roundsCount} round(s). Includes warmup (${tournament.settings.warmupMinutes} min), game time (${tournament.settings.gameLengthMinutes} min), and flex time (${tournament.settings.flexMinutes} min) per game.`}
+                  type="info"
+                  showIcon={false}
+                  style={{ borderRadius: '8px' }}
+                />
+              </Space>
+            </Card>
           )}
           
           {/* Game Settings Card */}
-          <div className="card">
-            <h3 className="text-xl font-heading uppercase tracking-wide-heading text-dark-charcoal mb-4 pb-2 border-b-2 border-accent-orange" style={{ fontStyle: 'oblique' }}>
+          <Card
+            style={{
+              borderRadius: '16px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #e5e7eb',
+            }}
+            bodyStyle={{ padding: '24px' }}
+          >
+            <Title level={4} style={{ 
+              marginBottom: '20px', 
+              fontWeight: 700,
+              borderBottom: '2px solid #f97316',
+              paddingBottom: '12px',
+            }}>
+              <SettingOutlined style={{ marginRight: '8px' }} />
               Game Settings
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div className="space-y-3">
+            </Title>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
                 <div>
-                  <span className="text-sm text-gray-500 uppercase tracking-wide">Warmup Time</span>
-                  <div className="text-lg font-semibold text-dark-near-black mt-1">{tournament.settings.warmupMinutes} minutes</div>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: '4px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Warmup Time
+                  </Text>
+                  <Text strong style={{ fontSize: '18px', display: 'block' }}>
+                    {tournament.settings.warmupMinutes} minutes
+                  </Text>
                 </div>
                 <div>
-                  <span className="text-sm text-gray-500 uppercase tracking-wide">Game Length</span>
-                  <div className="text-lg font-semibold text-dark-near-black mt-1">{tournament.settings.gameLengthMinutes} minutes</div>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: '4px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Game Length
+                  </Text>
+                  <Text strong style={{ fontSize: '18px', display: 'block' }}>
+                    {tournament.settings.gameLengthMinutes} minutes
+                  </Text>
                 </div>
-              </div>
-              <div className="space-y-3">
+              </Space>
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
                 <div>
-                  <span className="text-sm text-gray-500 uppercase tracking-wide">Flex Time</span>
-                  <div className="text-lg font-semibold text-dark-near-black mt-1">{tournament.settings.flexMinutes} minutes</div>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: '4px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Flex Time
+                  </Text>
+                  <Text strong style={{ fontSize: '18px', display: 'block' }}>
+                    {tournament.settings.flexMinutes} minutes
+                  </Text>
                 </div>
                 <div>
-                  <span className="text-sm text-gray-500 uppercase tracking-wide">Total Time per Game</span>
-                  <div className="text-lg font-semibold text-accent-orange mt-1">
+                  <Text type="secondary" style={{ display: 'block', marginBottom: '4px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Total Time per Game
+                  </Text>
+                  <Text strong style={{ fontSize: '18px', display: 'block', color: '#f97316' }}>
                     {tournament.settings.warmupMinutes + tournament.settings.gameLengthMinutes + tournament.settings.flexMinutes} minutes
-                  </div>
+                  </Text>
                 </div>
-              </div>
+              </Space>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
+          </Card>
+        </Space>
+      </Content>
+    </Layout>
   );
 }
-

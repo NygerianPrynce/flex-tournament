@@ -1,9 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useTournamentStore } from '../store/tournamentStore';
 import type { Game, GameSlot, Tournament } from '../types';
-import { getRoundName } from '../lib/roundNames';
+import { getRoundName, getLosersRoundName } from '../lib/roundNames';
 import { ReactFlowTournamentBracket } from '../components/ReactFlowTournamentBracket';
 import { advanceByeInBracket } from '../lib/bracket';
+import {
+  Layout,
+  Typography,
+  Button,
+  Select,
+  Card,
+  Space,
+  Segmented,
+  Alert,
+  Modal,
+  Row,
+  Col,
+  message,
+} from 'antd';
+import { QuestionCircleOutlined, BranchesOutlined } from '@ant-design/icons';
+
+const { Content } = Layout;
+const { Title, Text } = Typography;
 
 interface TournamentBracketProps {
   tournament?: Tournament;
@@ -20,19 +38,19 @@ export function TournamentBracket({ tournament: propTournament, viewerMode = fal
     assignAllOpenToByeLosers,
     clearRoundGames,
     clearLosersRoundGames,
-    addTeam,
     autoAssignTeamsToBracket,
     autoAssignTeamsToBracketLosers,
     updateGame,
     updateTournament,
+    getAllGames,
   } = store;
   const [editingSlot, setEditingSlot] = useState<{ gameId: string; slot: 'A' | 'B' } | null>(null);
   const [draggedTeam, setDraggedTeam] = useState<string | null>(null);
   const [draggedTeamPool, setDraggedTeamPool] = useState<'winners' | 'losers' | null>(null);
   const [viewMode, setViewMode] = useState<'editor' | 'flow'>(viewerMode ? 'flow' : 'editor');
   const [dragOverSlot, setDragOverSlot] = useState<{ gameId: string; slot: 'A' | 'B' } | null>(null);
-  const [newTeamNameInput, setNewTeamNameInput] = useState('');
   const [collapsedRounds, setCollapsedRounds] = useState<Record<string, boolean>>({});
+  const [helpModalVisible, setHelpModalVisible] = useState(false);
   
   // Auto-complete BYE vs BYE games in first round
   useEffect(() => {
@@ -92,60 +110,111 @@ export function TournamentBracket({ tournament: propTournament, viewerMode = fal
     // In viewer mode, don't show bracket generation buttons
     if (viewerMode) {
       return (
-        <div className="p-3 sm:p-4 md:p-6 lg:p-8 overflow-x-hidden">
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-sport-orange mb-4 sm:mb-5 md:mb-6">Bracket</h2>
-          <div className="card max-w-2xl mx-auto">
-            <p className="text-gray-600 text-center py-8">
-              Bracket has not been generated yet.
-            </p>
-          </div>
-        </div>
+        <Layout style={{ minHeight: '100vh', background: '#f9fafb' }}>
+          <Content style={{ padding: '24px', maxWidth: '100%', width: '100%' }}>
+            <Card
+              style={{
+                maxWidth: '800px',
+                margin: '0 auto',
+                borderRadius: '12px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+              }}
+            >
+              <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: '32px', fontSize: '16px' }}>
+                Bracket has not been generated yet.
+              </Text>
+            </Card>
+          </Content>
+        </Layout>
       );
     }
     
     // Normal mode - show bracket generation buttons
     return (
-      <div className="p-3 sm:p-4 md:p-6 lg:p-8 overflow-x-hidden">
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-sport-orange mb-4 sm:mb-5 md:mb-6">Bracket</h2>
-        <div className="card max-w-2xl mx-auto">
-          <h3 className="text-xl font-semibold mb-4">Generate Bracket</h3>
-          <p className="text-gray-600 mb-6">
-            Choose how you want to create the tournament bracket:
-          </p>
-          <div className="space-y-4">
-            <button
-              onClick={() => generateBracket(true)}
-              className="btn-primary w-full py-3"
-            >
-              <span>AUTO-GENERATE BRACKET</span>
-            </button>
-            <button
-              onClick={() => {
-                if (tournament.seedingMode !== 'off' && tournament.seedingMode !== 'random') {
-                  const confirmed = confirm(
-                    '⚠️ Warning: Creating a bracket manually will disrupt the seeding you configured. ' +
-                    'The seeding effects may not be accurate anymore. Do you want to continue?'
-                  );
-                  if (!confirmed) return;
-                }
-                generateBracket(false);
-              }}
-              className="btn-secondary w-full py-3"
-            >
-              <span>CREATE BRACKET MANUALLY</span>
-            </button>
-            {tournament.seedingMode !== 'off' && tournament.seedingMode !== 'random' && (
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-800">
-                  <strong>Seeding Active:</strong> Your tournament uses {tournament.seedingMode === 'manual' ? 'manual' : 'uploaded'} seeding 
-                  {tournament.seedingType && ` with ${tournament.seedingType} seeding type`}. 
-                  Auto-generating the bracket will respect your seeding configuration.
-                </p>
-              </div>
-            )}
+      <Layout style={{ minHeight: '100vh', background: '#f9fafb' }}>
+        <Content style={{ padding: '24px', maxWidth: '100%', width: '100%' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <Title level={2} style={{ margin: 0, fontSize: '32px', fontWeight: 800, color: '#f97316' }}>
+              BRACKET
+            </Title>
           </div>
-        </div>
-      </div>
+          
+          <Card
+            style={{
+              maxWidth: '800px',
+              margin: '0 auto',
+              borderRadius: '12px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+            }}
+            bodyStyle={{ padding: '48px' }}
+          >
+            <Space direction="vertical" size={24} style={{ width: '100%' }}>
+              <Title level={3} style={{ margin: 0, fontSize: '24px', fontWeight: 700 }}>
+                Generate Bracket
+              </Title>
+              <Text style={{ fontSize: '15px', color: '#6b7280' }}>
+                Choose how you want to create the tournament bracket:
+              </Text>
+              
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                <Button
+                  type="primary"
+                  onClick={() => generateBracket(true)}
+                  size="large"
+                  block
+                  style={{
+                    height: '56px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                    border: 'none',
+                    fontSize: '16px',
+                    fontWeight: 700,
+                    boxShadow: '0 4px 12px rgba(249, 115, 22, 0.3)',
+                  }}
+                >
+                  AUTO-GENERATE BRACKET
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (tournament.seedingMode !== 'off' && tournament.seedingMode !== 'random') {
+                      const confirmed = confirm(
+                        '⚠️ Warning: Creating a bracket manually will disrupt the seeding you configured. ' +
+                        'The seeding effects may not be accurate anymore. Do you want to continue?'
+                      );
+                      if (!confirmed) return;
+                    }
+                    generateBracket(false);
+                  }}
+                  size="large"
+                  block
+                  style={{
+                    height: '56px',
+                    borderRadius: '12px',
+                    fontSize: '16px',
+                    fontWeight: 600,
+                  }}
+                >
+                  CREATE BRACKET MANUALLY
+                </Button>
+                {tournament.seedingMode !== 'off' && tournament.seedingMode !== 'random' && (
+                  <Alert
+                    message={
+                      <Text>
+                        <Text strong>Seeding Active:</Text> Your tournament uses {tournament.seedingMode === 'manual' ? 'manual' : 'uploaded'} seeding 
+                        {tournament.seedingType && ` with ${tournament.seedingType} seeding type`}. 
+                        Auto-generating the bracket will respect your seeding configuration.
+                      </Text>
+                    }
+                    type="warning"
+                    showIcon
+                    style={{ borderRadius: '12px' }}
+                  />
+                )}
+              </Space>
+            </Space>
+          </Card>
+        </Content>
+      </Layout>
     );
   }
   
@@ -191,22 +260,6 @@ export function TournamentBracket({ tournament: propTournament, viewerMode = fal
     return 'TBD';
   };
   
-  const getStatusColor = (status: Game['status']) => {
-    switch (status) {
-      case 'Warmup':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'Live':
-        return 'bg-green-100 text-green-800 border-green-300';
-      case 'Flex':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'Finished':
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-      case 'Paused':
-        return 'bg-orange-100 text-orange-800 border-orange-300';
-      default:
-        return 'bg-white text-gray-600 border-gray-200';
-    }
-  };
   
   const isRoundComplete = (roundIndex: number) => {
     if (roundIndex < 0 || roundIndex >= tournament.bracket!.winners.length) return false;
@@ -219,9 +272,22 @@ export function TournamentBracket({ tournament: propTournament, viewerMode = fal
   const isTournamentComplete = () => {
     if (!tournament.bracket) return false;
 
+    // First check: if there are 0 remaining games, tournament is complete
+    const allGames = getAllGames();
+    const unfinishedGames = allGames.filter((g: Game) => {
+      // Exclude BYE vs BYE games
+      if (g.teamA.type === 'BYE' && g.teamB.type === 'BYE') {
+        return false;
+      }
+      return g.status !== 'Finished';
+    });
+    if (unfinishedGames.length === 0) {
+      return true;
+    }
+
     // If there is a grand final, use that as the completion signal
     if (tournament.bracket.grandFinal) {
-  return (
+      return (
         tournament.bracket.grandFinal.status === 'Finished' &&
         !!tournament.bracket.grandFinal.result
       );
@@ -768,22 +834,70 @@ export function TournamentBracket({ tournament: propTournament, viewerMode = fal
       });
     });
     
+    // Check grand final reset game first (if it exists and is active)
+    if (tournament.bracket!.grandFinalReset) {
+      const resetGame = tournament.bracket!.grandFinalReset;
+      if (resetGame.status === 'Finished' && resetGame.result) {
+        // Reset game finished - tournament complete
+        const resetWinnerId = resetGame.result.winnerId;
+        winnersPool.add(resetWinnerId);
+        losersPool.delete(resetWinnerId);
+        
+        const resetLoserId = resetGame.teamA.type === 'Team' && resetGame.teamA.teamId === resetWinnerId
+          ? (resetGame.teamB.type === 'Team' ? resetGame.teamB.teamId : undefined)
+          : (resetGame.teamA.type === 'Team' ? resetGame.teamA.teamId : undefined);
+        if (resetLoserId) {
+          eliminated.add(resetLoserId);
+          losersPool.delete(resetLoserId);
+          winnersPool.delete(resetLoserId);
+        }
+      } else if (resetGame.teamA.type !== 'OPEN' && resetGame.teamB.type !== 'OPEN') {
+        // Reset game is active but not finished - both teams are still in play
+        if (resetGame.teamA.type === 'Team' && resetGame.teamA.teamId) {
+          // Winners bracket champion (from grand final) - not in any pool, just in reset game
+          eliminated.delete(resetGame.teamA.teamId);
+          losersPool.delete(resetGame.teamA.teamId);
+          winnersPool.delete(resetGame.teamA.teamId);
+        }
+        if (resetGame.teamB.type === 'Team' && resetGame.teamB.teamId) {
+          // Losers bracket champion (winner of grand final) - stays in losers pool
+          losersPool.add(resetGame.teamB.teamId);
+          winnersPool.delete(resetGame.teamB.teamId);
+        }
+      }
+    }
+    
     // Check grand final
     if (tournament.bracket!.grandFinal) {
       const gf = tournament.bracket!.grandFinal;
       if (gf.status === 'Finished' && gf.result) {
-        // Tournament complete - winner is in winners pool, loser is eliminated
         const winnerId = gf.result.winnerId;
-        winnersPool.add(winnerId);
-        losersPool.delete(winnerId);
+        const winnerCameFromLosers = gf.teamB.type === 'Team' && gf.teamB.teamId === winnerId;
         
-        const loserId = gf.teamA.type === 'Team' && gf.teamA.teamId === winnerId
-          ? (gf.teamB.type === 'Team' ? gf.teamB.teamId : undefined)
-          : (gf.teamA.type === 'Team' ? gf.teamA.teamId : undefined);
-        if (loserId) {
-          eliminated.add(loserId);
-          losersPool.delete(loserId);
-          winnersPool.delete(loserId);
+        // Check if reset game is active (populated but not finished)
+        const resetGame = tournament.bracket!.grandFinalReset;
+        const resetGameActive = resetGame && 
+          resetGame.teamA.type !== 'OPEN' && 
+          resetGame.teamB.type !== 'OPEN' &&
+          resetGame.status !== 'Finished';
+        
+        if (winnerCameFromLosers && resetGameActive) {
+          // Losers bracket champion won - reset game is active
+          // Team pool logic is handled above in reset game check
+          // Don't mark anyone as eliminated here
+        } else if (!resetGameActive) {
+          // Winners bracket champion won OR reset game doesn't exist - tournament complete
+          winnersPool.add(winnerId);
+          losersPool.delete(winnerId);
+          
+          const loserId = gf.teamA.type === 'Team' && gf.teamA.teamId === winnerId
+            ? (gf.teamB.type === 'Team' ? gf.teamB.teamId : undefined)
+            : (gf.teamA.type === 'Team' ? gf.teamA.teamId : undefined);
+          if (loserId) {
+            eliminated.add(loserId);
+            losersPool.delete(loserId);
+            winnersPool.delete(loserId);
+          }
         }
       } else if (gf.status !== 'Finished') {
         // Grand final in progress
@@ -873,385 +987,777 @@ const renderEditorView = () => {
     
   
     return (
-      <div className="flex flex-col gap-6">
+      <Space direction="vertical" size={24} style={{ width: '100%' }}>
         {/* Seeding Warning Banner */}
         {tournament.seedingMode !== 'off' && tournament.seedingMode !== 'random' && (
-          <div className="p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
-            <p className="text-sm text-yellow-800">
-              <strong>⚠️ Seeding Active:</strong> Your tournament uses {tournament.seedingMode === 'manual' ? 'manual' : 'uploaded'} seeding
-              {tournament.seedingType && ` with ${tournament.seedingType} seeding type`}. 
-              Manually editing the bracket will disrupt the seeding configuration and may affect bracket accuracy.
-            </p>
-          </div>
+          <Alert
+            message={
+              <Text>
+                <Text strong>⚠️ Seeding Active:</Text> Your tournament uses {tournament.seedingMode === 'manual' ? 'manual' : 'uploaded'} seeding
+                {tournament.seedingType && ` with ${tournament.seedingType} seeding type`}. 
+                Manually editing the bracket will disrupt the seeding configuration and may affect bracket accuracy.
+              </Text>
+            }
+            type="warning"
+            showIcon
+            style={{ borderRadius: '12px' }}
+          />
         )}
         
-        <div className="flex gap-6">
-          {/* Team Pools */}
-          <div className="w-64 flex-shrink-0">
-            <div className="card sticky top-4">
-              <h3 className="text-lg font-semibold mb-4">Team Pools</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Drag teams to bracket slots or click slots to edit
-              </p>
-              <div className="space-y-6 max-h-[600px] overflow-y-auto">
-                {/* Winners Pool - only show if double elimination */}
-                {tournament.settings.includeLosersBracket && (
-                <div>
-                  <h4 className="text-sm font-medium text-green-700 mb-2 uppercase tracking-wide">Winners Bracket Pool</h4>
-                  {availableTeams.winnersAvailable.length > 0 && (
-                    <div className="mb-3">
-                      <div className="text-xs text-gray-500 mb-1">Available</div>
-                      <div className="space-y-2">
-                        {availableTeams.winnersAvailable.map(team => {
-                          const eligibleForWinners = tournament.bracket!.winners.some((_, idx) => 
-                            !isRoundComplete(idx) && canEditRound(idx) && getEligibleTeamsForRound(idx).has(team.id)
-                          );
-                          const canDrag = eligibleForWinners && !tournamentComplete;
-                          return (
-                            <div
-                              key={team.id}
-                              draggable={canDrag}
-                              onDragStart={() => canDrag && handleDragStart(team.id, 'winners')}
-                              className={`p-3 border rounded-lg transition-colors ${
-                                canDrag
-                                  ? 'bg-green-50 border-green-200 cursor-move hover:bg-green-100'
-                                  : 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-50'
-                              }`}
-                              title={
-                                canDrag
-                                  ? 'Drag to Winners Bracket'
-                                  : tournamentComplete
-                                    ? 'Tournament is complete. Teams are locked.'
-                                    : 'This team is not eligible for the current winners bracket round'
-                              }
+        <div style={{ display: 'flex', gap: '24px' }}>
+          {/* Team Pools - Hide when tournament is complete */}
+          {!tournamentComplete && (
+            <div style={{ width: '300px', flexShrink: 0 }}>
+              <Card
+              title={
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{
+                    width: '4px',
+                    height: '24px',
+                    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                    borderRadius: '2px',
+                  }} />
+                  <Title level={4} style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>
+                    Team Pools
+                  </Title>
+                </div>
+              }
+              style={{
+                position: 'sticky',
+                top: '24px',
+                borderRadius: '16px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+                background: '#ffffff',
+              }}
+              headStyle={{
+                background: 'linear-gradient(135deg, #ffffff 0%, #f9fafb 100%)',
+                borderBottom: '2px solid #f3f4f6',
+                borderRadius: '16px 16px 0 0',
+                padding: '24px',
+              }}
+              bodyStyle={{
+                padding: '24px',
+                background: '#fafafa',
+              }}
+            >
+              <div style={{
+                padding: '12px 16px',
+                background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                borderRadius: '8px',
+                marginBottom: '20px',
+                border: '1px solid #fcd34d',
+              }}>
+                <Text style={{ fontSize: '13px', lineHeight: '1.6', color: '#92400e', fontWeight: 500 }}>
+                  💡 Drag teams to bracket slots or click slots to edit, or press auto-assign teams in order to populate the bracket.
+                </Text>
+              </div>
+              <div style={{ maxHeight: '600px', overflowY: 'auto', paddingRight: '4px' }}>
+                <Space direction="vertical" size={24} style={{ width: '100%' }}>
+                  {/* Teams Pool - for single elimination */}
+                  {!tournament.settings.includeLosersBracket && (
+                    <div>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '16px',
+                        paddingBottom: '12px',
+                        borderBottom: '2px solid #dcfce7',
+                      }}>
+                        <div style={{
+                          width: '3px',
+                          height: '20px',
+                          background: '#16a34a',
+                          borderRadius: '2px',
+                        }} />
+                        <Text strong style={{ fontSize: '14px', color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Teams
+                        </Text>
+                      </div>
+                      {availableTeams.winnersAvailable.length > 0 && (
+                        <div style={{ marginBottom: '16px' }}>
+                          <Text type="secondary" style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>Available</Text>
+                          <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                            {availableTeams.winnersAvailable.map(team => {
+                              const eligibleForWinners = tournament.bracket!.winners.some((_, idx) => 
+                                !isRoundComplete(idx) && canEditRound(idx) && getEligibleTeamsForRound(idx).has(team.id)
+                              );
+                              const canDrag = eligibleForWinners && !tournamentComplete;
+                              return (
+                                <Card
+                                  key={team.id}
+                                  draggable={canDrag}
+                                  onDragStart={() => canDrag && handleDragStart(team.id, 'winners')}
+                                  size="small"
+                                  style={{
+                                    cursor: canDrag ? 'move' : 'not-allowed',
+                                    opacity: canDrag ? 1 : 0.5,
+                                    background: canDrag ? '#f0fdf4' : '#f3f4f6',
+                                    borderColor: canDrag ? '#86efac' : '#d1d5db',
+                                    borderRadius: '10px',
+                                    transition: 'all 0.2s ease',
+                                    boxShadow: canDrag ? '0 2px 8px rgba(22, 163, 74, 0.1)' : 'none',
+                                  }}
+                                  bodyStyle={{ padding: '14px' }}
+                                  hoverable={canDrag}
+                                >
+                                  <Text strong={canDrag} style={{ color: canDrag ? undefined : '#6b7280' }}>
+                                    {team.name}
+                                  </Text>
+                                  {team.seed && (
+                                    <div>
+                                      <Text type="secondary" style={{ fontSize: '12px' }}>Seed: {team.seed}</Text>
+                                    </div>
+                                  )}
+                                </Card>
+                              );
+                            })}
+                          </Space>
+                        </div>
+                      )}
+                      {availableTeams.winnersAssigned.length > 0 && (
+                        <div>
+                          <Text type="secondary" style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>Assigned</Text>
+                          <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                            {availableTeams.winnersAssigned.map(team => (
+                              <Card
+                                key={team.id}
+                                size="small"
+                                style={{
+                                  background: '#f3f4f6',
+                                  borderColor: '#d1d5db',
+                                  borderRadius: '10px',
+                                  opacity: 0.6,
+                                }}
+                                bodyStyle={{ padding: '14px' }}
+                              >
+                                <Text strong>{team.name}</Text>
+                                {team.seed && (
+                                  <div>
+                                    <Text type="secondary" style={{ fontSize: '12px' }}>Seed: {team.seed}</Text>
+                                  </div>
+                                )}
+                              </Card>
+                            ))}
+                          </Space>
+                        </div>
+                      )}
+                      {availableTeams.winnersAvailable.length === 0 && availableTeams.winnersAssigned.length === 0 && (
+                        <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: '8px', fontSize: '13px' }}>
+                          No teams available
+                        </Text>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Winners Pool - only show if double elimination */}
+                  {tournament.settings.includeLosersBracket && (
+                    <div>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '16px',
+                        paddingBottom: '12px',
+                        borderBottom: '2px solid #dcfce7',
+                      }}>
+                        <div style={{
+                          width: '3px',
+                          height: '20px',
+                          background: '#16a34a',
+                          borderRadius: '2px',
+                        }} />
+                        <Text strong style={{ fontSize: '14px', color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Winners Bracket Pool
+                        </Text>
+                      </div>
+                      {availableTeams.winnersAvailable.length > 0 && (
+                        <div style={{ marginBottom: '16px' }}>
+                          <Text type="secondary" style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>Available</Text>
+                          <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                            {availableTeams.winnersAvailable.map(team => {
+                              const eligibleForWinners = tournament.bracket!.winners.some((_, idx) => 
+                                !isRoundComplete(idx) && canEditRound(idx) && getEligibleTeamsForRound(idx).has(team.id)
+                              );
+                              const canDrag = eligibleForWinners && !tournamentComplete;
+                              return (
+                                <Card
+                                  key={team.id}
+                                  draggable={canDrag}
+                                  onDragStart={() => canDrag && handleDragStart(team.id, 'winners')}
+                                  size="small"
+                                  style={{
+                                    cursor: canDrag ? 'move' : 'not-allowed',
+                                    opacity: canDrag ? 1 : 0.5,
+                                    background: canDrag ? '#f0fdf4' : '#f3f4f6',
+                                    borderColor: canDrag ? '#86efac' : '#d1d5db',
+                                    borderRadius: '8px',
+                                  }}
+                                  bodyStyle={{ padding: '12px' }}
+                                >
+                                  <Text strong={canDrag} style={{ color: canDrag ? undefined : '#6b7280' }}>
+                                    {team.name}
+                                  </Text>
+                                  {team.seed && (
+                                    <div>
+                                      <Text type="secondary" style={{ fontSize: '12px' }}>Seed: {team.seed}</Text>
+                                    </div>
+                                  )}
+                                </Card>
+                              );
+                            })}
+                          </Space>
+                        </div>
+                      )}
+                      {availableTeams.winnersAssigned.length > 0 && (
+                        <div>
+                          <Text type="secondary" style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>Assigned</Text>
+                          <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                            {availableTeams.winnersAssigned.map(team => (
+                              <Card
+                                key={team.id}
+                                size="small"
+                                style={{
+                                  background: '#f3f4f6',
+                                  borderColor: '#d1d5db',
+                                  borderRadius: '8px',
+                                  opacity: 0.6,
+                                }}
+                                bodyStyle={{ padding: '12px' }}
+                              >
+                                <Text strong>{team.name}</Text>
+                                {team.seed && (
+                                  <div>
+                                    <Text type="secondary" style={{ fontSize: '12px' }}>Seed: {team.seed}</Text>
+                                  </div>
+                                )}
+                              </Card>
+                            ))}
+                          </Space>
+                        </div>
+                      )}
+                      {availableTeams.winnersAvailable.length === 0 && availableTeams.winnersAssigned.length === 0 && (
+                        <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: '8px', fontSize: '13px' }}>
+                          No teams in winners pool
+                        </Text>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Losers Pool - only show if double elimination */}
+                  {isDoubleElimination && (
+                    <div>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '16px',
+                        paddingBottom: '12px',
+                        borderBottom: '2px solid #fee2e2',
+                      }}>
+                        <div style={{
+                          width: '3px',
+                          height: '20px',
+                          background: '#dc2626',
+                          borderRadius: '2px',
+                        }} />
+                        <Text strong style={{ fontSize: '14px', color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Losers Bracket Pool
+                        </Text>
+                      </div>
+                      {availableTeams.losersAvailable.length > 0 && (
+                        <div style={{ marginBottom: '16px' }}>
+                          <Text type="secondary" style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>Available</Text>
+                          <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                            {availableTeams.losersAvailable.map(team => {
+                              // Check if team is eligible for any editable losers round
+                              const eligibleForLosers = tournament.bracket!.losers.some((_, idx) => {
+                                if (isLosersRoundComplete(idx) || !canEditLosersRound(idx)) return false;
+                                const eligible = getEligibleTeamsForLosersRound(idx);
+                                return eligible.has(team.id);
+                              });
+                              
+                              // Also check if team lost in winners bracket (they should be eligible for losers)
+                              const lostInWinners = tournament.bracket!.winners.some(round =>
+                                round.some(game => {
+                                  if (game.status === 'Finished' && game.result) {
+                                    const loserId = (() => {
+                                      const winnerId = game.result.winnerId;
+                                      if (game.teamA.type === 'Team' && game.teamA.teamId === winnerId) {
+                                        return game.teamB.type === 'Team' ? game.teamB.teamId : undefined;
+                                      }
+                                      if (game.teamB.type === 'Team' && game.teamB.teamId === winnerId) {
+                                        return game.teamA.type === 'Team' ? game.teamA.teamId : undefined;
+                                      }
+                                      return undefined;
+                                    })();
+                                    return loserId === team.id;
+                                  }
+                                  return false;
+                                })
+                              );
+                              
+                              const canDrag = (eligibleForLosers || lostInWinners) && !tournamentComplete;
+                              return (
+                                <Card
+                                  key={team.id}
+                                  draggable={canDrag}
+                                  onDragStart={() => canDrag && handleDragStart(team.id, 'losers')}
+                                  size="small"
+                                  style={{
+                                    cursor: canDrag ? 'move' : 'not-allowed',
+                                    opacity: canDrag ? 1 : 0.5,
+                                    background: canDrag ? '#fef2f2' : '#f3f4f6',
+                                    borderColor: canDrag ? '#fca5a5' : '#d1d5db',
+                                    borderRadius: '10px',
+                                    transition: 'all 0.2s ease',
+                                    boxShadow: canDrag ? '0 2px 8px rgba(220, 38, 38, 0.1)' : 'none',
+                                  }}
+                                  bodyStyle={{ padding: '14px' }}
+                                  hoverable={canDrag}
+                                >
+                                  <Text strong={canDrag} style={{ color: canDrag ? undefined : '#6b7280' }}>
+                                    {team.name}
+                                  </Text>
+                                  {team.seed && (
+                                    <div>
+                                      <Text type="secondary" style={{ fontSize: '12px' }}>Seed: {team.seed}</Text>
+                                    </div>
+                                  )}
+                                </Card>
+                              );
+                            })}
+                          </Space>
+                        </div>
+                      )}
+                      {availableTeams.losersAssigned.length > 0 && (
+                        <div>
+                          <Text type="secondary" style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>Assigned</Text>
+                          <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                            {availableTeams.losersAssigned.map(team => (
+                              <Card
+                                key={team.id}
+                                size="small"
+                                style={{
+                                  background: '#f3f4f6',
+                                  borderColor: '#d1d5db',
+                                  borderRadius: '10px',
+                                  opacity: 0.6,
+                                }}
+                                bodyStyle={{ padding: '14px' }}
+                              >
+                                <Text strong>{team.name}</Text>
+                                {team.seed && (
+                                  <div>
+                                    <Text type="secondary" style={{ fontSize: '12px' }}>Seed: {team.seed}</Text>
+                                  </div>
+                                )}
+                              </Card>
+                            ))}
+                          </Space>
+                        </div>
+                      )}
+                      {availableTeams.losersAvailable.length === 0 && availableTeams.losersAssigned.length === 0 && (
+                        <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: '8px', fontSize: '13px' }}>
+                          No teams in losers pool
+                        </Text>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Eliminated Teams */}
+                  {availableTeams.eliminated.length > 0 && (
+                    <div>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '16px',
+                        paddingBottom: '12px',
+                        borderBottom: '2px solid #e5e7eb',
+                      }}>
+                        <div style={{
+                          width: '3px',
+                          height: '20px',
+                          background: '#6b7280',
+                          borderRadius: '2px',
+                        }} />
+                        <Text strong style={{ fontSize: '14px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Eliminated
+                        </Text>
+                      </div>
+                      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                        {availableTeams.eliminated.map(team => (
+                          <Card
+                            key={team.id}
+                            size="small"
+                            style={{
+                              background: '#f3f4f6',
+                              borderColor: '#d1d5db',
+                              borderRadius: '10px',
+                              opacity: 0.5,
+                            }}
+                            bodyStyle={{ padding: '14px' }}
+                          >
+                            <Text strong style={{ color: '#9ca3af', textDecoration: 'line-through' }}>
+                              {team.name}
+                            </Text>
+                            {team.seed && (
+                              <div>
+                                <Text type="secondary" style={{ fontSize: '12px', color: '#9ca3af' }}>Seed: {team.seed}</Text>
+                              </div>
+                            )}
+                          </Card>
+                        ))}
+                      </Space>
+                    </div>
+                  )}
+                </Space>
+              </div>
+            </Card>
+          </div>
+          )}
+        
+          {/* Bracket Editor */}
+          <div style={{ flex: 1 }}>
+            {/* Winners Bracket */}
+            <div style={{ marginBottom: '32px' }}>
+              {isDoubleElimination && (
+                <Title level={3} style={{ marginBottom: '16px', fontSize: '24px', fontWeight: 700 }}>
+                  Winners Bracket
+                </Title>
+              )}
+              <Space direction="vertical" size={24} style={{ width: '100%' }}>
+                {tournament.bracket!.winners.map((round, roundIndex) => {
+                  if (!shouldShowRound(roundIndex)) return null;
+                  const key = `W-${roundIndex}`;
+                  const isCollapsed = !!collapsedRounds[key];
+                  
+                  return (
+                    <Card
+                      key={roundIndex}
+                      style={{
+                        marginBottom: '24px',
+                        borderRadius: '16px',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                        border: '1px solid #e5e7eb',
+                      }}
+                      bodyStyle={{ padding: '24px' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                          <Title level={4} style={{ margin: 0, fontSize: '20px', fontWeight: 700, lineHeight: '1.2' }}>
+                            {getRoundName(roundIndex, tournament.bracket!.winners.length, round.length).toUpperCase()}
+                          </Title>
+                          <Button
+                            size="small"
+                            onClick={() =>
+                              setCollapsedRounds(prev => ({ ...prev, [key]: !prev[key] }))
+                            }
+                            style={{
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              height: '28px',
+                              padding: '0 12px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            {isCollapsed ? 'Show' : 'Hide'}
+                          </Button>
+                        </div>
+                        {!canEditRound(roundIndex) && (
+                          <Alert
+                            message={`Complete ${getRoundName(roundIndex - 1, tournament.bracket!.winners.length, tournament.bracket!.winners[roundIndex - 1]?.length || 0)} first`}
+                            type="warning"
+                            showIcon
+                            style={{ borderRadius: '8px', fontSize: '13px' }}
+                          />
+                        )}
+                        {canEditRound(roundIndex) && !isRoundComplete(roundIndex) && (
+                          <Space size={8} wrap>
+                            {tournament.settings.openSlotPolicy !== 'BYE' && (
+                              <Button
+                                size="small"
+                                onClick={() => assignAllOpenToBye(roundIndex)}
+                                style={{
+                                  borderRadius: '8px',
+                                  fontSize: '13px',
+                                  height: '32px',
+                                }}
+                              >
+                                Assign All OPEN to BYE
+                              </Button>
+                            )}
+                            <Button
+                              type="primary"
+                              size="small"
+                              onClick={() => autoAssignTeamsToBracket(roundIndex)}
+                              style={{
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                height: '32px',
+                                background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                                border: 'none',
+                                fontWeight: 600,
+                                boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)',
+                              }}
                             >
-                              <div className={`font-medium ${canDrag ? '' : 'text-gray-500'}`}>{team.name}</div>
-                              {team.seed && (
-                                <div className="text-xs text-gray-500">Seed: {team.seed}</div>
-                              )}
-                            </div>
+                              Auto-Assign Teams
+                            </Button>
+                            <Button
+                              size="small"
+                              danger
+                              onClick={() => {
+                                // Check if any games in the round are in progress
+                                const gamesInProgress = round.filter(g => 
+                                  g.status === 'Warmup' || g.status === 'Live' || g.status === 'Flex' || g.status === 'Paused'
+                                );
+                                const gamesToClear = round.filter(g => 
+                                  g.status === 'Queued' || g.status === 'Finished'
+                                );
+                                
+                                if (gamesToClear.length === 0) {
+                                  message.info('No games to clear. All games are currently in progress.');
+                                  return;
+                                }
+                                
+                                Modal.confirm({
+                                  title: 'Clear All Games',
+                                  content: gamesInProgress.length > 0
+                                    ? `Are you sure you want to clear ${gamesToClear.length} game(s) in Round ${roundIndex + 1}? ${gamesInProgress.length} game(s) are currently in progress and will not be cleared.`
+                                    : `Are you sure you want to clear all games in Round ${roundIndex + 1}?`,
+                                  onOk: () => {
+                                    clearRoundGames(roundIndex);
+                                    if (gamesInProgress.length > 0) {
+                                      message.warning(`${gamesInProgress.length} or more match(es) were unable to be cleared because they are in progress.`);
+                                    }
+                                  },
+                                  okText: 'Clear',
+                                  okButtonProps: { danger: true },
+                                });
+                              }}
+                              style={{
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                height: '32px',
+                              }}
+                            >
+                              Clear All Games
+                            </Button>
+                          </Space>
+                        )}
+                      </div>
+                    {!isCollapsed && (
+                      <Row gutter={[16, 16]}>
+                        {round.map((game) => {
+                          const gameInProgress = isGameInProgress(game);
+                          const status = getGameStatus(game, roundIndex);
+                          
+                          // Determine card border color based on status
+                          let borderColor = '#d1d5db';
+                          let backgroundColor = '#ffffff';
+                          if (game.status === 'Finished') {
+                            borderColor = '#9ca3af';
+                            backgroundColor = '#f3f4f6';
+                          } else if (status === 'valid' || (status === 'bye-vs-bye' && roundIndex === 0 && game.round === 1)) {
+                            borderColor = '#16a34a';
+                            backgroundColor = '#f0fdf4';
+                          } else if (status === 'bye-vs-bye') {
+                            borderColor = '#dc2626';
+                            backgroundColor = '#fef2f2';
+                          } else if (status === 'open-vs-bye' || status === 'open-vs-open' || status === 'team-vs-open') {
+                            borderColor = '#f59e0b';
+                            backgroundColor = '#fffbeb';
+                          }
+                          
+                          return (
+                            <Col xs={24} sm={12} lg={8} xl={6} key={game.id}>
+                              <Card
+                                style={{
+                                  border: `2px solid ${borderColor}`,
+                                  borderRadius: '12px',
+                                  background: backgroundColor,
+                                  opacity: !canEditRound(roundIndex) ? 0.5 : game.status === 'Finished' ? 0.6 : 1,
+                                  boxShadow: gameInProgress ? '0 0 0 3px rgba(249, 115, 22, 0.3)' : '0 2px 8px rgba(0, 0, 0, 0.08)',
+                                  transition: 'all 0.2s ease',
+                                }}
+                                bodyStyle={{ padding: '16px' }}
+                              >
+                                {game.status === 'Finished' && (
+                                  <div style={{ 
+                                    textAlign: 'center', 
+                                    fontSize: '11px', 
+                                    color: '#6b7280', 
+                                    fontWeight: 600, 
+                                    marginBottom: '12px', 
+                                    paddingBottom: '8px', 
+                                    borderBottom: '1px solid #e5e7eb' 
+                                  }}>
+                                    Completed
+                                  </div>
+                                )}
+                                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                                  <div
+                                    draggable={false}
+                                    onDragOver={(e) => canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDragOver(e, game.id, 'A', 'winners')}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={() => canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDrop(game, 'A', 'winners')}
+                                    onClick={() => canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleSlotClick(game, 'A', game.teamA)}
+                                    style={{
+                                      cursor: gameInProgress || game.status === 'Finished' ? 'not-allowed' : 'pointer',
+                                      opacity: gameInProgress || game.status === 'Finished' ? 0.75 : 1,
+                                      padding: '12px',
+                                      borderRadius: '8px',
+                                      border: `2px dashed ${dragOverSlot?.gameId === game.id && dragOverSlot?.slot === 'A' ? '#3b82f6' : 'transparent'}`,
+                                      background: dragOverSlot?.gameId === game.id && dragOverSlot?.slot === 'A' 
+                                        ? '#dbeafe' 
+                                        : game.teamA.type === 'Team' 
+                                          ? '#eff6ff' 
+                                          : '#f9fafb',
+                                      transition: 'all 0.2s ease',
+                                      textAlign: 'center',
+                                    }}
+                                  >
+                                    <Text strong style={{ fontSize: '14px', display: 'block' }}>
+                                      {getTeamName(game.teamA, game, 'A')}
+                                    </Text>
+                                    {canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && (
+                                      <Text type="secondary" style={{ fontSize: '10px', display: 'block', marginTop: '4px', color: '#f97316' }}>
+                                        (click to edit)
+                                      </Text>
+                                    )}
+                                    {gameInProgress && (
+                                      <Text type="secondary" style={{ fontSize: '10px', display: 'block', marginTop: '4px', color: '#ea580c' }}>
+                                        (in progress)
+                                      </Text>
+                                    )}
+                                  </div>
+                                  
+                                  <div style={{ textAlign: 'center' }}>
+                                    <Text strong style={{ fontSize: '12px', color: '#16a34a', fontWeight: 700 }}>
+                                      VS
+                                    </Text>
+                                  </div>
+                                  
+                                  <div
+                                    draggable={false}
+                                    onDragOver={(e) => canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDragOver(e, game.id, 'B', 'winners')}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={() => canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDrop(game, 'B', 'winners')}
+                                    onClick={() => canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleSlotClick(game, 'B', game.teamB)}
+                                    style={{
+                                      cursor: gameInProgress || game.status === 'Finished' ? 'not-allowed' : 'pointer',
+                                      opacity: gameInProgress || game.status === 'Finished' ? 0.75 : 1,
+                                      padding: '12px',
+                                      borderRadius: '8px',
+                                      border: `2px dashed ${dragOverSlot?.gameId === game.id && dragOverSlot?.slot === 'B' ? '#3b82f6' : 'transparent'}`,
+                                      background: dragOverSlot?.gameId === game.id && dragOverSlot?.slot === 'B' 
+                                        ? '#dbeafe' 
+                                        : game.teamB.type === 'Team' 
+                                          ? '#eff6ff' 
+                                          : '#f9fafb',
+                                      transition: 'all 0.2s ease',
+                                      textAlign: 'center',
+                                    }}
+                                  >
+                                    <Text strong style={{ fontSize: '14px', display: 'block' }}>
+                                      {getTeamName(game.teamB, game, 'B')}
+                                    </Text>
+                                    {canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && (
+                                      <Text type="secondary" style={{ fontSize: '10px', display: 'block', marginTop: '4px', color: '#f97316' }}>
+                                        (click to edit)
+                                      </Text>
+                                    )}
+                                    {gameInProgress && (
+                                      <Text type="secondary" style={{ fontSize: '10px', display: 'block', marginTop: '4px', color: '#ea580c' }}>
+                                        (in progress)
+                                      </Text>
+                                    )}
+                                  </div>
+                                  
+                                  {(() => {
+                                    if (status === 'bye-vs-bye' && roundIndex !== 0 && game.round !== 1) {
+                                      return (
+                                        <Alert
+                                          message="Invalid Game"
+                                          type="error"
+                                          showIcon
+                                          style={{ borderRadius: '8px', fontSize: '12px', marginTop: '8px' }}
+                                        />
+                                      );
+                                    }
+                                    if (status === 'open-vs-bye') {
+                                      return (
+                                        <Alert
+                                          message="Missing Team"
+                                          type="warning"
+                                          showIcon
+                                          style={{ borderRadius: '8px', fontSize: '12px', marginTop: '8px' }}
+                                        />
+                                      );
+                                    }
+                                    if (status === 'open-vs-open') {
+                                      return (
+                                        <Alert
+                                          message="Place Teams to Complete Game"
+                                          type="warning"
+                                          showIcon
+                                          style={{ borderRadius: '8px', fontSize: '12px', marginTop: '8px' }}
+                                        />
+                                      );
+                                    }
+                                    if (status === 'team-vs-open') {
+                                      return (
+                                        <Alert
+                                          message="Place Team to Complete Game"
+                                          type="warning"
+                                          showIcon
+                                          style={{ borderRadius: '8px', fontSize: '12px', marginTop: '8px' }}
+                                        />
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+                                  
+                                  {game.result && (
+                                    <div style={{ 
+                                      textAlign: 'center', 
+                                      marginTop: '8px', 
+                                      padding: '8px', 
+                                      background: '#f3f4f6', 
+                                      borderRadius: '8px' 
+                                    }}>
+                                      <Text style={{ fontSize: '13px', color: '#6b7280' }}>
+                                        {getTeamName(game.teamA, game, 'A')} {game.result.scoreA} - {game.result.scoreB} {getTeamName(game.teamB, game, 'B')}
+                                      </Text>
+                                    </div>
+                                  )}
+                                  
+                                  {game.courtId && (
+                                    <div style={{ textAlign: 'center', marginTop: '4px' }}>
+                                      <Text type="secondary" style={{ fontSize: '11px' }}>
+                                        {tournament.courts.find(c => c.id === game.courtId)?.name}
+                                      </Text>
+                                    </div>
+                                  )}
+                                </Space>
+                              </Card>
+                            </Col>
                           );
                         })}
-                      </div>
-                    </div>
-                  )}
-                  {availableTeams.winnersAssigned.length > 0 && (
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Assigned</div>
-                      <div className="space-y-2">
-                        {availableTeams.winnersAssigned.map(team => (
-                          <div
-                            key={team.id}
-                            className="p-3 bg-gray-100 border border-gray-300 rounded-lg opacity-60"
-                          >
-                            <div className="font-medium">{team.name}</div>
-                            {team.seed && (
-                              <div className="text-xs text-gray-500">Seed: {team.seed}</div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {availableTeams.winnersAvailable.length === 0 && availableTeams.winnersAssigned.length === 0 && (
-                    <div className="text-sm text-gray-500 text-center py-2">
-                      No teams in winners pool
-                    </div>
-                  )}
-                </div>
-                )}
-
-                {/* Losers Pool - only show if double elimination */}
-                {isDoubleElimination && (
-                  <div>
-                    <h4 className="text-sm font-medium text-red-700 mb-2 uppercase tracking-wide">Losers Bracket Pool</h4>
-                    {availableTeams.losersAvailable.length > 0 && (
-                      <div className="mb-3">
-                        <div className="text-xs text-gray-500 mb-1">Available</div>
-                        <div className="space-y-2">
-                          {availableTeams.losersAvailable.map(team => {
-                            // Check if team is eligible for any editable losers round
-                            const eligibleForLosers = tournament.bracket!.losers.some((_, idx) => {
-                              if (isLosersRoundComplete(idx) || !canEditLosersRound(idx)) return false;
-                              const eligible = getEligibleTeamsForLosersRound(idx);
-                              return eligible.has(team.id);
-                            });
-                            
-                            // Also check if team lost in winners bracket (they should be eligible for losers)
-                            const lostInWinners = tournament.bracket!.winners.some(round =>
-                              round.some(game => {
-                                if (game.status === 'Finished' && game.result) {
-                                  const loserId = (() => {
-                                    const winnerId = game.result.winnerId;
-                                    if (game.teamA.type === 'Team' && game.teamA.teamId === winnerId) {
-                                      return game.teamB.type === 'Team' ? game.teamB.teamId : undefined;
-                                    }
-                                    if (game.teamB.type === 'Team' && game.teamB.teamId === winnerId) {
-                                      return game.teamA.type === 'Team' ? game.teamA.teamId : undefined;
-                                    }
-                                    return undefined;
-                                  })();
-                                  return loserId === team.id;
-                                }
-                                return false;
-                              })
-                            );
-                            
-                            const canDrag = (eligibleForLosers || lostInWinners) && !tournamentComplete;
-                            return (
-                              <div
-                                key={team.id}
-                                draggable={canDrag}
-                                onDragStart={() => canDrag && handleDragStart(team.id, 'losers')}
-                                className={`p-3 border rounded-lg transition-colors ${
-                                  canDrag
-                                    ? 'bg-red-50 border-red-200 cursor-move hover:bg-red-100'
-                                    : 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-50'
-                                }`}
-                                title={
-                                  canDrag
-                                    ? 'Drag to Losers Bracket'
-                                    : tournamentComplete
-                                      ? 'Tournament is complete. Teams are locked.'
-                                      : 'This team is not eligible for the current losers bracket round'
-                                }
-                              >
-                                <div className={`font-medium ${canDrag ? '' : 'text-gray-500'}`}>{team.name}</div>
-                                {team.seed && (
-                                  <div className="text-xs text-gray-500">Seed: {team.seed}</div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
+                      </Row>
                     )}
-                    {availableTeams.losersAssigned.length > 0 && (
-                      <div>
-                        <div className="text-xs text-gray-500 mb-1">Assigned</div>
-                        <div className="space-y-2">
-                          {availableTeams.losersAssigned.map(team => (
-                            <div
-                              key={team.id}
-                              className="p-3 bg-gray-100 border border-gray-300 rounded-lg opacity-60"
-                            >
-                              <div className="font-medium">{team.name}</div>
-                              {team.seed && (
-                                <div className="text-xs text-gray-500">Seed: {team.seed}</div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {availableTeams.losersAvailable.length === 0 && availableTeams.losersAssigned.length === 0 && (
-                      <div className="text-sm text-gray-500 text-center py-2">
-                        No teams in losers pool
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Eliminated Teams */}
-                {availableTeams.eliminated.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-2 uppercase tracking-wide">Eliminated</h4>
-                    <div className="space-y-2">
-                      {availableTeams.eliminated.map(team => (
-                        <div
-                          key={team.id}
-                          className="p-3 bg-gray-100 border border-gray-300 rounded-lg opacity-50"
-                        >
-                          <div className="font-medium text-gray-400 line-through">{team.name}</div>
-                          {team.seed && (
-                            <div className="text-xs text-gray-400">Seed: {team.seed}</div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+                    </Card>
+                  );
+                })}
+              </Space>
             </div>
-          </div>
-        
-        {/* Bracket Editor */}
-        <div className="flex-1">
-      {/* Winners Bracket */}
-      <div className="mb-8">
-            {isDoubleElimination && (
-        <h3 className="text-2xl font-semibold mb-4">Winners Bracket</h3>
-            )}
-        <div className="space-y-6">
-              {tournament.bracket!.winners.map((round, roundIndex) => {
-                if (!shouldShowRound(roundIndex)) return null;
-                const key = `W-${roundIndex}`;
-                const isCollapsed = !!collapsedRounds[key];
-                
-                return (
-            <div key={roundIndex}>
-                    <div className="flex items-center gap-4 mb-2 flex-wrap">
-                      <h4 className="text-lg font-medium">{getRoundName(roundIndex, tournament.bracket!.winners.length, round.length)}</h4>
-                      <button
-                        onClick={() =>
-                          setCollapsedRounds(prev => ({ ...prev, [key]: !prev[key] }))
-                        }
-                        className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 transition"
-                      >
-                        <span>{isCollapsed ? 'Show' : 'Hide'}</span>
-                        <span className={`transition-transform ${isCollapsed ? 'rotate-180' : ''}`}>⌃</span>
-                      </button>
-                      {!canEditRound(roundIndex) && (
-                        <span className="text-sm text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                          Complete {getRoundName(roundIndex - 1, tournament.bracket!.winners.length, tournament.bracket!.winners[roundIndex - 1]?.length || 0)} first
-                        </span>
-                      )}
-                      {canEditRound(roundIndex) && !isRoundComplete(roundIndex) && (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {tournament.settings.openSlotPolicy !== 'BYE' && (
-                            <button
-                              onClick={() => assignAllOpenToBye(roundIndex)}
-                              className="text-sm btn-secondary"
-                            >
-                              Assign All OPEN to BYE
-                            </button>
-                          )}
-                          <button
-                            onClick={() => autoAssignTeamsToBracket(roundIndex)}
-                            className="text-sm btn-primary"
-                          >
-                            Auto-Assign Teams
-                          </button>
-                          <button
-                            onClick={() => {
-                              // Check if any games in the round are in progress
-                              const gamesInProgress = round.filter(g => 
-                                g.status === 'Warmup' || g.status === 'Live' || g.status === 'Flex' || g.status === 'Paused'
-                              );
-                              if (gamesInProgress.length > 0) {
-                                alert(`Cannot clear round ${roundIndex + 1}. Some games are currently in progress. Please finish or pause those games first.`);
-                                return;
-                              }
-                              if (confirm(`Clear all games in Round ${roundIndex + 1}?`)) {
-                                clearRoundGames(roundIndex);
-                              }
-                            }}
-                            className="text-sm btn-secondary"
-                          >
-                            Clear All Games
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    {!isCollapsed && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {round.map((game) => {
-                      const gameInProgress = isGameInProgress(game);
-                      return (
-                  <div
-                    key={game.id}
-                          className={`border-2 p-2 ${(() => {
-                            // Gray out completed games
-                            if (game.status === 'Finished') {
-                              return 'border-gray-400 bg-gray-100 opacity-60';
-                            }
-                            const status = getGameStatus(game, roundIndex);
-                            // BYE vs BYE in first round is valid, show green
-                            if (status === 'bye-vs-bye' && roundIndex === 0 && game.round === 1) return 'border-green-500 bg-green-50 ring-2 ring-green-300';
-                            if (status === 'bye-vs-bye') return 'border-red-500 bg-red-50 ring-2 ring-red-300';
-                            if (status === 'open-vs-bye') return 'border-orange-500 bg-orange-50 ring-2 ring-orange-300';
-                            if (status === 'open-vs-open') return 'border-yellow-500 bg-yellow-50 ring-2 ring-yellow-300';
-                            if (status === 'team-vs-open') return 'border-yellow-500 bg-yellow-50 ring-2 ring-yellow-300';
-                            if (status === 'valid') return 'border-green-500 bg-green-50 ring-2 ring-green-300';
-                            return getStatusColor(game.status);
-                          })()} ${!canEditRound(roundIndex) ? 'opacity-50' : ''} ${gameInProgress ? 'ring-2 ring-orange-400' : ''}`}
-                  >
-                    {game.status === 'Finished' && (
-                      <div className="text-center text-xs text-gray-500 font-semibold mb-1 pb-1 border-b border-gray-300">
-                        Completed
-                      </div>
-                    )}
-                    <div className="text-center space-y-1">
-                      <div 
-                            draggable={false}
-                            onDragOver={(e) => canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDragOver(e, game.id, 'A', 'winners')}
-                            onDragLeave={handleDragLeave}
-                            onDrop={() => canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDrop(game, 'A', 'winners')}
-                            onClick={() => canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleSlotClick(game, 'A', game.teamA)}
-                            className={`text-sm font-semibold ${gameInProgress || game.status === 'Finished' ? 'cursor-not-allowed opacity-75' : 'cursor-pointer hover:bg-gray-100'} rounded px-1.5 py-1 border-2 border-dashed transition-colors ${
-                              dragOverSlot?.gameId === game.id && dragOverSlot?.slot === 'A'
-                                ? 'border-blue-500 bg-blue-100'
-                                : 'border-transparent'
-                            } ${game.teamA.type === 'Team' ? 'bg-blue-50' : 'bg-gray-50'}`}
-                      >
-                            {getTeamName(game.teamA, game, 'A')}
-                            {canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && (
-                              <span className="text-[10px] text-sport-orange ml-1 block">(click to edit)</span>
-                            )}
-                            {gameInProgress && (
-                              <span className="text-[10px] text-orange-600 ml-1 block">(in progress)</span>
-                        )}
-                      </div>
-                      <div className="text-sport-green font-bold text-xs">VS</div>
-                      <div 
-                            draggable={false}
-                            onDragOver={(e) => canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDragOver(e, game.id, 'B', 'winners')}
-                            onDragLeave={handleDragLeave}
-                            onDrop={() => canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDrop(game, 'B', 'winners')}
-                            onClick={() => canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleSlotClick(game, 'B', game.teamB)}
-                            className={`text-sm font-semibold ${gameInProgress || game.status === 'Finished' ? 'cursor-not-allowed opacity-75' : 'cursor-pointer hover:bg-gray-100'} rounded px-1.5 py-1 border-2 border-dashed transition-colors ${
-                              dragOverSlot?.gameId === game.id && dragOverSlot?.slot === 'B'
-                                ? 'border-blue-500 bg-blue-100'
-                                : 'border-transparent'
-                            } ${game.teamB.type === 'Team' ? 'bg-blue-50' : 'bg-gray-50'}`}
-                          >
-                            {getTeamName(game.teamB, game, 'B')}
-                            {canEditRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && (
-                              <span className="text-[10px] text-sport-orange ml-1 block">(click to edit)</span>
-                            )}
-                            {gameInProgress && (
-                              <span className="text-[10px] text-orange-600 ml-1 block">(in progress)</span>
-                        )}
-                      </div>
-                          {(() => {
-                            const status = getGameStatus(game, roundIndex);
-                            // BYE vs BYE in first round is valid, don't show error
-                            if (status === 'bye-vs-bye' && roundIndex !== 0 && game.round !== 1) {
-                              return <div className="text-xs text-red-600 font-semibold mt-1">⚠️ Invalid Game</div>;
-                            }
-                            if (status === 'open-vs-bye') {
-                              return <div className="text-xs text-orange-600 font-semibold mt-1">⚠️ Missing Team</div>;
-                            }
-                            if (status === 'open-vs-open') {
-                              return <div className="text-xs text-yellow-700 font-semibold mt-1">⚠️ Place Teams to Complete Game</div>;
-                            }
-                            if (status === 'team-vs-open') {
-                              return <div className="text-xs text-yellow-700 font-semibold mt-1">⚠️ Place Team to Complete Game</div>;
-                            }
-                            return null;
-                          })()}
-                      {game.result && (
-                        <div className="text-sm text-gray-600 mt-2">
-                              {getTeamName(game.teamA, game, 'A')} {game.result.scoreA} - {game.result.scoreB} {getTeamName(game.teamB, game, 'B')}
-                        </div>
-                      )}
-                      <div className="text-xs mt-2">
-                        {game.courtId && tournament.courts.find(c => c.id === game.courtId)?.name}
-                      </div>
-                    </div>
-                  </div>
-                    );
-                    })}
-              </div>
-                    )}
-            </div>
-              );
-              })}
-        </div>
-      </div>
-      
-      {/* Losers Bracket */}
-      {tournament.bracket!.losers.length > 0 && (
+            
+            {/* Losers Bracket */}
+            {tournament.bracket!.losers.length > 0 && (
         (() => {
           // Only show losers bracket rounds that have at least one non-OPEN slot
           const winnersFinalFinished = isWinnersFinalFinished();
@@ -1276,158 +1782,346 @@ const renderEditorView = () => {
           if (visibleLosersRounds.length === 0) return null;
 
           return (
-        <div className="mb-8">
-          <h3 className="text-2xl font-semibold mb-4">Losers Bracket</h3>
-          <div className="space-y-6">
+            <div style={{ marginBottom: '32px' }}>
+              <Title level={3} style={{ marginBottom: '16px', fontSize: '24px', fontWeight: 700 }}>
+                Losers Bracket
+              </Title>
+              <Space direction="vertical" size={24} style={{ width: '100%' }}>
                 {visibleLosersRounds.map(({ round, idx }) => {
                   const roundIndex = idx;
+                  const key = `L-${roundIndex}`;
+                  const isCollapsed = !!collapsedRounds[key];
+                  
                   return (
-              <div key={roundIndex}>
-                    <div className="flex items-center gap-3 mb-2">
-                      <h4 className="text-lg font-medium">
-                        {getRoundName(roundIndex, tournament.bracket!.losers.length, round.length)}
-                      </h4>
-                      <button
-                        onClick={() =>
-                          setCollapsedRounds(prev => ({ ...prev, [`L-${roundIndex}`]: !prev[`L-${roundIndex}`] }))
-                        }
-                        className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 transition"
-                      >
-                        <span>{collapsedRounds[`L-${roundIndex}`] ? 'Show' : 'Hide'}</span>
-                        <span className={`transition-transform ${collapsedRounds[`L-${roundIndex}`] ? 'rotate-180' : ''}`}>⌃</span>
-                      </button>
-                    </div>
-                    {!collapsedRounds[`L-${roundIndex}`] && (
-                      canEditLosersRound(roundIndex) && !isLosersRoundComplete(roundIndex) && (
-                        <div className="flex items-center gap-2 flex-wrap mb-2">
-                          {tournament.settings.openSlotPolicy !== 'BYE' && (
-                            <button
-                              onClick={() => assignAllOpenToByeLosers(roundIndex)}
-                              className="text-sm btn-secondary"
-                            >
-                              Assign All OPEN to BYE
-                            </button>
-                          )}
-                          <button
-                            onClick={() => autoAssignTeamsToBracketLosers(roundIndex)}
-                            className="text-sm btn-primary"
-                          >
-                            Auto-Assign Teams
-                          </button>
-                          <button
-                            onClick={() => {
-                              const round = tournament.bracket!.losers[roundIndex];
-                              const gamesInProgress = round.filter(g => 
-                                g.status === 'Warmup' || g.status === 'Live' || g.status === 'Flex' || g.status === 'Paused'
-                              );
-                              if (gamesInProgress.length > 0) {
-                                alert(`Cannot clear losers round ${roundIndex + 1}. Some games are currently in progress. Please finish or pause those games first.`);
-                                return;
-                              }
-                              if (confirm(`Clear all games in Losers Round ${roundIndex + 1}?`)) {
-                                clearLosersRoundGames(roundIndex);
-                              }
-                            }}
-                            className="text-sm btn-secondary"
-                          >
-                            Clear All Games
-                          </button>
-                        </div>
-                      )
-                    )}
-                    {!collapsedRounds[`L-${roundIndex}`] && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {round.map((game) => {
-                    const gameInProgress = isGameInProgress(game);
-                    return (
-                    <div
-                      key={game.id}
-                          className={`border-2 p-2 ${(() => {
-                            // Gray out completed games
-                            if (game.status === 'Finished') {
-                              return 'border-gray-400 bg-gray-100 opacity-60';
-                            }
-                            const status = getGameStatus(game, roundIndex);
-                            // BYE vs BYE in first round is valid, show green
-                            if (status === 'bye-vs-bye' && roundIndex === 0 && game.round === 1) return 'border-green-500 bg-green-50 ring-2 ring-green-300';
-                            if (status === 'bye-vs-bye') return 'border-red-500 bg-red-50 ring-2 ring-red-300';
-                            if (status === 'open-vs-bye') return 'border-orange-500 bg-orange-50 ring-2 ring-orange-300';
-                            if (status === 'open-vs-open') return 'border-yellow-500 bg-yellow-50 ring-2 ring-yellow-300';
-                            if (status === 'team-vs-open') return 'border-yellow-500 bg-yellow-50 ring-2 ring-yellow-300';
-                            if (status === 'valid') return 'border-green-500 bg-green-50 ring-2 ring-green-300';
-                            return getStatusColor(game.status);
-                          })()} ${!canEditLosersRound(roundIndex) ? 'opacity-50' : ''} ${gameInProgress ? 'ring-2 ring-orange-400' : ''}`}
+                    <Card
+                      key={roundIndex}
+                      style={{
+                        marginBottom: '24px',
+                        borderRadius: '16px',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                        border: '1px solid #e5e7eb',
+                      }}
+                      bodyStyle={{ padding: '24px' }}
                     >
-                      {game.status === 'Finished' && (
-                        <div className="text-xs text-gray-500 mb-1 text-center pb-1 border-b border-gray-300">
-                          Completed
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                          <Title level={4} style={{ margin: 0, fontSize: '20px', fontWeight: 700, lineHeight: '1.2' }}>
+                            {getLosersRoundName(roundIndex, tournament.bracket!.losers.length, round.length).toUpperCase()}
+                          </Title>
+                          <Button
+                            size="small"
+                            onClick={() =>
+                              setCollapsedRounds(prev => ({ ...prev, [key]: !prev[key] }))
+                            }
+                            style={{
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              height: '28px',
+                              padding: '0 12px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            {isCollapsed ? 'Show' : 'Hide'}
+                          </Button>
                         </div>
-                      )}
-                      <div className="text-center space-y-1">
-                            <div 
-                              draggable={false}
-                              onDragOver={(e) => canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDragOver(e, game.id, 'A', 'losers')}
-                              onDragLeave={handleDragLeave}
-                              onDrop={() => canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDrop(game, 'A', 'losers')}
-                              onClick={() => canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleSlotClick(game, 'A', game.teamA)}
-                              className={`text-sm font-semibold ${gameInProgress || game.status === 'Finished' ? 'cursor-not-allowed opacity-75' : 'cursor-pointer hover:bg-gray-100'} rounded px-1.5 py-1 border-2 border-dashed transition-colors ${
-                                dragOverSlot?.gameId === game.id && dragOverSlot?.slot === 'A'
-                                  ? 'border-red-500 bg-red-100'
-                                  : 'border-transparent'
-                              } ${game.teamA.type === 'Team' ? 'bg-red-50' : 'bg-gray-50'}`}
+                        {!isCollapsed && canEditLosersRound(roundIndex) && !isLosersRoundComplete(roundIndex) && (
+                          <Space size={8} wrap>
+                            {tournament.settings.openSlotPolicy !== 'BYE' && (
+                              <Button
+                                size="small"
+                                onClick={() => assignAllOpenToByeLosers(roundIndex)}
+                                style={{
+                                  borderRadius: '8px',
+                                  fontSize: '13px',
+                                  height: '32px',
+                                }}
+                              >
+                                Assign All OPEN to BYE
+                              </Button>
+                            )}
+                            <Button
+                              type="primary"
+                              size="small"
+                              onClick={() => autoAssignTeamsToBracketLosers(roundIndex)}
+                              style={{
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                height: '32px',
+                                background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                                border: 'none',
+                                fontWeight: 600,
+                                boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)',
+                              }}
                             >
-                              {getTeamName(game.teamA, game, 'A')}
-                              {canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && (
-                                <span className="text-[10px] text-sport-orange ml-1 block">(click to edit)</span>
-                              )}
-                              {gameInProgress && (
-                                <span className="text-[10px] text-orange-600 ml-1 block">(in progress)</span>
-                              )}
-                            </div>
-                        <div className="text-sport-green font-bold text-xs">VS</div>
-                            <div 
-                              draggable={false}
-                              onDragOver={(e) => canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDragOver(e, game.id, 'B', 'losers')}
-                              onDragLeave={handleDragLeave}
-                              onDrop={() => canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDrop(game, 'B', 'losers')}
-                              onClick={() => canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleSlotClick(game, 'B', game.teamB)}
-                              className={`text-sm font-semibold ${gameInProgress || game.status === 'Finished' ? 'cursor-not-allowed opacity-75' : 'cursor-pointer hover:bg-gray-100'} rounded px-1.5 py-1 border-2 border-dashed transition-colors ${
-                                dragOverSlot?.gameId === game.id && dragOverSlot?.slot === 'B'
-                                  ? 'border-red-500 bg-red-100'
-                                  : 'border-transparent'
-                              } ${game.teamB.type === 'Team' ? 'bg-red-50' : 'bg-gray-50'}`}
+                              Auto-Assign Teams
+                            </Button>
+                            <Button
+                              size="small"
+                              danger
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const round = tournament.bracket!.losers[roundIndex];
+                                if (!round) {
+                                  console.error('Round not found at index:', roundIndex);
+                                  return;
+                                }
+                                const gamesInProgress = round.filter(g => 
+                                  g.status === 'Warmup' || g.status === 'Live' || g.status === 'Flex' || g.status === 'Paused'
+                                );
+                                const gamesToClear = round.filter(g => 
+                                  g.status === 'Queued' || g.status === 'Finished'
+                                );
+                                
+                                if (gamesToClear.length === 0) {
+                                  message.info('No games to clear. All games are currently in progress.');
+                                  return;
+                                }
+                                
+                                Modal.confirm({
+                                  title: 'Clear All Games',
+                                  content: gamesInProgress.length > 0
+                                    ? `Are you sure you want to clear ${gamesToClear.length} game(s) in Losers Round ${roundIndex + 1}? ${gamesInProgress.length} game(s) are currently in progress and will not be cleared.`
+                                    : `Are you sure you want to clear all games in Losers Round ${roundIndex + 1}?`,
+                                  onOk: () => {
+                                    try {
+                                      clearLosersRoundGames(roundIndex);
+                                      if (gamesInProgress.length > 0) {
+                                        message.warning(`${gamesInProgress.length} or more match(es) were unable to be cleared because they are in progress.`);
+                                      }
+                                    } catch (error) {
+                                      console.error('Error clearing losers round games:', error);
+                                      message.error('Failed to clear games. Please try again.');
+                                    }
+                                  },
+                                  okText: 'Clear',
+                                  okButtonProps: { danger: true },
+                                });
+                              }}
+                              style={{
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                height: '32px',
+                              }}
                             >
-                              {getTeamName(game.teamB, game, 'B')}
-                              {canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && (
-                                <span className="text-[10px] text-sport-orange ml-1 block">(click to edit)</span>
-                              )}
-                              {gameInProgress && (
-                                <span className="text-[10px] text-orange-600 ml-1 block">(in progress)</span>
-                              )}
-                            </div>
-                        {game.result && (
-                          <div className="text-sm text-gray-600 mt-2">
-                                {getTeamName(game.teamA, game, 'A')} {game.result.scoreA} -{' '}
-                                {game.result.scoreB} {getTeamName(game.teamB, game, 'B')}
-                          </div>
+                              Clear All Games
+                            </Button>
+                          </Space>
                         )}
                       </div>
-                    </div>
-                    );
-                  })}
-                </div>
-                )}
-              </div>
-            );
+                    {!isCollapsed && (
+                      <Row gutter={[16, 16]}>
+                        {round.map((game) => {
+                          const gameInProgress = isGameInProgress(game);
+                          const status = getGameStatus(game, roundIndex);
+                          
+                          // Determine card border color based on status
+                          let borderColor = '#d1d5db';
+                          let backgroundColor = '#ffffff';
+                          if (game.status === 'Finished') {
+                            borderColor = '#9ca3af';
+                            backgroundColor = '#f3f4f6';
+                          } else if (status === 'valid' || (status === 'bye-vs-bye' && roundIndex === 0 && game.round === 1)) {
+                            borderColor = '#16a34a';
+                            backgroundColor = '#f0fdf4';
+                          } else if (status === 'bye-vs-bye') {
+                            borderColor = '#dc2626';
+                            backgroundColor = '#fef2f2';
+                          } else if (status === 'open-vs-bye' || status === 'open-vs-open' || status === 'team-vs-open') {
+                            borderColor = '#f59e0b';
+                            backgroundColor = '#fffbeb';
+                          }
+                          
+                          return (
+                            <Col xs={24} sm={12} lg={8} xl={6} key={game.id}>
+                              <Card
+                                style={{
+                                  border: `2px solid ${borderColor}`,
+                                  borderRadius: '12px',
+                                  background: backgroundColor,
+                                  opacity: !canEditLosersRound(roundIndex) ? 0.5 : game.status === 'Finished' ? 0.6 : 1,
+                                  boxShadow: gameInProgress ? '0 0 0 3px rgba(249, 115, 22, 0.3)' : '0 2px 8px rgba(0, 0, 0, 0.08)',
+                                  transition: 'all 0.2s ease',
+                                }}
+                                bodyStyle={{ padding: '16px' }}
+                              >
+                                {game.status === 'Finished' && (
+                                  <div style={{ 
+                                    textAlign: 'center', 
+                                    fontSize: '11px', 
+                                    color: '#6b7280', 
+                                    fontWeight: 600, 
+                                    marginBottom: '12px', 
+                                    paddingBottom: '8px', 
+                                    borderBottom: '1px solid #e5e7eb' 
+                                  }}>
+                                    Completed
+                                  </div>
+                                )}
+                                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                                  <div
+                                    draggable={false}
+                                    onDragOver={(e) => canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDragOver(e, game.id, 'A', 'losers')}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={() => canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDrop(game, 'A', 'losers')}
+                                    onClick={() => canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleSlotClick(game, 'A', game.teamA)}
+                                    style={{
+                                      cursor: gameInProgress || game.status === 'Finished' ? 'not-allowed' : 'pointer',
+                                      opacity: gameInProgress || game.status === 'Finished' ? 0.75 : 1,
+                                      padding: '12px',
+                                      borderRadius: '8px',
+                                      border: `2px dashed ${dragOverSlot?.gameId === game.id && dragOverSlot?.slot === 'A' ? '#dc2626' : 'transparent'}`,
+                                      background: dragOverSlot?.gameId === game.id && dragOverSlot?.slot === 'A' 
+                                        ? '#fee2e2' 
+                                        : game.teamA.type === 'Team' 
+                                          ? '#fef2f2' 
+                                          : '#f9fafb',
+                                      transition: 'all 0.2s ease',
+                                      textAlign: 'center',
+                                    }}
+                                  >
+                                    <Text strong style={{ fontSize: '14px', display: 'block' }}>
+                                      {getTeamName(game.teamA, game, 'A')}
+                                    </Text>
+                                    {canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && (
+                                      <Text type="secondary" style={{ fontSize: '10px', display: 'block', marginTop: '4px', color: '#f97316' }}>
+                                        (click to edit)
+                                      </Text>
+                                    )}
+                                    {gameInProgress && (
+                                      <Text type="secondary" style={{ fontSize: '10px', display: 'block', marginTop: '4px', color: '#ea580c' }}>
+                                        (in progress)
+                                      </Text>
+                                    )}
+                                  </div>
+                                  
+                                  <div style={{ textAlign: 'center' }}>
+                                    <Text strong style={{ fontSize: '12px', color: '#16a34a', fontWeight: 700 }}>
+                                      VS
+                                    </Text>
+                                  </div>
+                                  
+                                  <div
+                                    draggable={false}
+                                    onDragOver={(e) => canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDragOver(e, game.id, 'B', 'losers')}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={() => canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleDrop(game, 'B', 'losers')}
+                                    onClick={() => canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && handleSlotClick(game, 'B', game.teamB)}
+                                    style={{
+                                      cursor: gameInProgress || game.status === 'Finished' ? 'not-allowed' : 'pointer',
+                                      opacity: gameInProgress || game.status === 'Finished' ? 0.75 : 1,
+                                      padding: '12px',
+                                      borderRadius: '8px',
+                                      border: `2px dashed ${dragOverSlot?.gameId === game.id && dragOverSlot?.slot === 'B' ? '#dc2626' : 'transparent'}`,
+                                      background: dragOverSlot?.gameId === game.id && dragOverSlot?.slot === 'B' 
+                                        ? '#fee2e2' 
+                                        : game.teamB.type === 'Team' 
+                                          ? '#fef2f2' 
+                                          : '#f9fafb',
+                                      transition: 'all 0.2s ease',
+                                      textAlign: 'center',
+                                    }}
+                                  >
+                                    <Text strong style={{ fontSize: '14px', display: 'block' }}>
+                                      {getTeamName(game.teamB, game, 'B')}
+                                    </Text>
+                                    {canEditLosersRound(roundIndex) && !gameInProgress && game.status !== 'Finished' && (
+                                      <Text type="secondary" style={{ fontSize: '10px', display: 'block', marginTop: '4px', color: '#f97316' }}>
+                                        (click to edit)
+                                      </Text>
+                                    )}
+                                    {gameInProgress && (
+                                      <Text type="secondary" style={{ fontSize: '10px', display: 'block', marginTop: '4px', color: '#ea580c' }}>
+                                        (in progress)
+                                      </Text>
+                                    )}
+                                  </div>
+                                  
+                                  {(() => {
+                                    if (status === 'bye-vs-bye' && roundIndex !== 0 && game.round !== 1) {
+                                      return (
+                                        <Alert
+                                          message="Invalid Game"
+                                          type="error"
+                                          showIcon
+                                          style={{ borderRadius: '8px', fontSize: '12px', marginTop: '8px' }}
+                                        />
+                                      );
+                                    }
+                                    if (status === 'open-vs-bye') {
+                                      return (
+                                        <Alert
+                                          message="Missing Team"
+                                          type="warning"
+                                          showIcon
+                                          style={{ borderRadius: '8px', fontSize: '12px', marginTop: '8px' }}
+                                        />
+                                      );
+                                    }
+                                    if (status === 'open-vs-open') {
+                                      return (
+                                        <Alert
+                                          message="Place Teams to Complete Game"
+                                          type="warning"
+                                          showIcon
+                                          style={{ borderRadius: '8px', fontSize: '12px', marginTop: '8px' }}
+                                        />
+                                      );
+                                    }
+                                    if (status === 'team-vs-open') {
+                                      return (
+                                        <Alert
+                                          message="Place Team to Complete Game"
+                                          type="warning"
+                                          showIcon
+                                          style={{ borderRadius: '8px', fontSize: '12px', marginTop: '8px' }}
+                                        />
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+                                  
+                                  {game.result && (
+                                    <div style={{ 
+                                      textAlign: 'center', 
+                                      marginTop: '8px', 
+                                      padding: '8px', 
+                                      background: '#f3f4f6', 
+                                      borderRadius: '8px' 
+                                    }}>
+                                      <Text style={{ fontSize: '13px', color: '#6b7280' }}>
+                                        {getTeamName(game.teamA, game, 'A')} {game.result.scoreA} - {game.result.scoreB} {getTeamName(game.teamB, game, 'B')}
+                                      </Text>
+                                    </div>
+                                  )}
+                                  
+                                  {game.courtId && (
+                                    <div style={{ textAlign: 'center', marginTop: '4px' }}>
+                                      <Text type="secondary" style={{ fontSize: '11px' }}>
+                                        {tournament.courts.find(c => c.id === game.courtId)?.name}
+                                      </Text>
+                                    </div>
+                                  )}
+                                </Space>
+                              </Card>
+                            </Col>
+                          );
+                        })}
+                      </Row>
+                    )}
+                    </Card>
+                  );
                 })}
-          </div>
-        </div>
+              </Space>
+            </div>
           );
         })()
-      )}
-      
-      {/* Grand Final */}
-      {tournament.bracket!.grandFinal &&
+            )}
+            
+            {/* Grand Final */}
+            {tournament.bracket!.grandFinal &&
         !(
           tournament.bracket!.grandFinal.teamA.type === 'OPEN' &&
           tournament.bracket!.grandFinal.teamB.type === 'OPEN'
@@ -1436,7 +2130,7 @@ const renderEditorView = () => {
           (!isDoubleElimination && isWinnersFinalFinished()) ||
           (isDoubleElimination && isWinnersFinalFinished() && isLosersFinalFinished())
         ) && (
-        <div className="mb-8">
+          <div className="mb-8">
           <h3 className="text-2xl font-semibold mb-4">Grand Final</h3>
           <div
             className={`card border-4 max-w-md mx-auto ${
@@ -1455,57 +2149,248 @@ const renderEditorView = () => {
               </div>
               {tournament.bracket!.grandFinal.result && (
                 <div className="text-lg text-gray-600 mt-2">
-                  {getTeamName(tournament.bracket!.grandFinal.teamA)}{' '}
-                  {tournament.bracket!.grandFinal.result.scoreA} -{' '}
-                  {tournament.bracket!.grandFinal.result.scoreB}{' '}
-                  {getTeamName(tournament.bracket!.grandFinal.teamB)}
+                  {tournament.settings.scoringRequired !== false
+                    ? `${getTeamName(tournament.bracket!.grandFinal.teamA)} ${tournament.bracket!.grandFinal.result.scoreA} - ${tournament.bracket!.grandFinal.result.scoreB} ${getTeamName(tournament.bracket!.grandFinal.teamB)}`
+                    : `${getTeamName(tournament.bracket!.grandFinal.teamA)} vs ${getTeamName(tournament.bracket!.grandFinal.teamB)} - ${tournament.bracket!.grandFinal.result.winnerId === (tournament.bracket!.grandFinal.teamA.type === 'Team' ? tournament.bracket!.grandFinal.teamA.teamId : undefined) ? getTeamName(tournament.bracket!.grandFinal.teamA) : getTeamName(tournament.bracket!.grandFinal.teamB)} won`}
                 </div>
               )}
             </div>
           </div>
+          </div>
+            )}
+            
+            {/* Grand Final Reset - Show when grand final is finished and losers bracket champion won, or if reset exists and has teams assigned */}
+            {tournament.bracket!.grandFinalReset &&
+        tournament.bracket!.grandFinalReset.teamA.type !== 'OPEN' &&
+        tournament.bracket!.grandFinalReset.teamB.type !== 'OPEN' && (
+          <div className="mb-8">
+          <h3 className="text-2xl font-semibold mb-4">Grand Final Reset</h3>
+          <div
+            className={`card border-4 max-w-md mx-auto ${
+              tournament.bracket!.grandFinalReset.status === 'Finished'
+                ? 'border-gray-400 bg-gray-100 opacity-60'
+                : ''
+            }`}
+          >
+            <div className="text-center space-y-2">
+              <div className="font-semibold text-lg">
+                {getTeamName(tournament.bracket!.grandFinalReset.teamA)}
+              </div>
+              <div className="text-sport-green font-bold text-xl">VS</div>
+              <div className="font-semibold text-lg">
+                {getTeamName(tournament.bracket!.grandFinalReset.teamB)}
+              </div>
+              {tournament.bracket!.grandFinalReset.result && (
+                <div className="text-lg text-gray-600 mt-2">
+                  {tournament.settings.scoringRequired !== false
+                    ? `${getTeamName(tournament.bracket!.grandFinalReset.teamA)} ${tournament.bracket!.grandFinalReset.result.scoreA} - ${tournament.bracket!.grandFinalReset.result.scoreB} ${getTeamName(tournament.bracket!.grandFinalReset.teamB)}`
+                    : `${getTeamName(tournament.bracket!.grandFinalReset.teamA)} vs ${getTeamName(tournament.bracket!.grandFinalReset.teamB)} - ${tournament.bracket!.grandFinalReset.result.winnerId === (tournament.bracket!.grandFinalReset.teamA.type === 'Team' ? tournament.bracket!.grandFinalReset.teamA.teamId : undefined) ? getTeamName(tournament.bracket!.grandFinalReset.teamA) : getTeamName(tournament.bracket!.grandFinalReset.teamB)} won`}
+                </div>
+              )}
+            </div>
+          </div>
+          </div>
+            )}
+          </div>
         </div>
-      )}
-              </div>
-                  </div>
-              </div>
+      </Space>
     );
   };
               
   return (
-    <div className="p-3 sm:p-4 md:p-6 lg:p-8 overflow-x-hidden">
-      <div className={`flex items-center justify-between ${viewerMode || viewMode === 'flow' ? 'mb-2 sm:mb-3 md:mb-4' : 'mb-4 sm:mb-6 md:mb-8'}`}>
-              <div>
-          <h2
-            className="text-2xl sm:text-3xl md:text-4xl font-heading uppercase tracking-wide-heading text-accent-orange mb-1 sm:mb-2"
-            style={{ fontStyle: 'oblique' }}
-          >
-            BRACKET
-          </h2>
-          <div className="divider-orange"></div>
-                  </div>
-        {!viewerMode && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => setViewMode('editor')}
-              className={viewMode === 'editor' ? 'tab-active' : 'tab-inactive'}
-            >
-              <span>EDITOR</span>
-            </button>
-            <button
-              onClick={() => setViewMode('flow')}
-              className={viewMode === 'flow' ? 'tab-active' : 'tab-inactive'}
-            >
-              <span>FULL BRACKET VIEW</span>
-            </button>
+    <Layout style={{ minHeight: '100vh', background: '#f9fafb' }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+        * { font-family: 'Poppins', sans-serif; }
+      `}</style>
+
+      <Content style={{ padding: '24px', maxWidth: '100%', width: '100%' }}>
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <BranchesOutlined style={{ fontSize: '32px', color: '#f97316' }} />
+              <Title level={2} style={{ margin: 0, fontSize: '32px', fontWeight: 800, color: '#f97316' }}>
+                {viewerMode || viewMode === 'flow' ? 'BRACKET VIEWER' : 'BRACKET EDITOR'}
+              </Title>
+            </div>
+            {!viewerMode && (
+              <Space size={12} align="center">
+                <style>{`
+                  .bracket-view-toggle .ant-segmented-item-selected {
+                    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
+                    color: #ffffff !important;
+                    font-weight: 700 !important;
+                    box-shadow: 0 2px 8px rgba(249, 115, 22, 0.3) !important;
+                  }
+                  .bracket-view-toggle .ant-segmented-item {
+                    font-weight: 600;
+                    transition: all 0.2s ease;
+                    padding: 0 24px !important;
+                  }
+                  .bracket-view-toggle .ant-segmented-item:hover:not(.ant-segmented-item-selected) {
+                    color: #f97316;
+                    background: #fef3c7;
+                  }
+                `}</style>
+                <Segmented
+                  className="bracket-view-toggle"
+                  options={[
+                    { label: 'Editor', value: 'editor' },
+                    { label: 'Viewer', value: 'flow' },
+                  ]}
+                  value={viewMode}
+                  onChange={(value) => setViewMode(value as 'editor' | 'flow')}
+                  size="large"
+                  style={{
+                    background: '#f3f4f6',
+                    padding: '4px',
+                    borderRadius: '12px',
+                    fontSize: '15px',
+                    fontWeight: 600,
+                  }}
+                />
+                <Button
+                  icon={<QuestionCircleOutlined />}
+                  onClick={() => setHelpModalVisible(true)}
+                  style={{
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  Help
+                </Button>
+              </Space>
+            )}
           </div>
-        )}
-          </div>
+        </div>
       
-      {viewerMode || viewMode === 'flow'
-        ? <ReactFlowTournamentBracket tournament={tournament} />
-        : renderEditorView()}
+        {viewerMode || viewMode === 'flow'
+          ? <ReactFlowTournamentBracket tournament={tournament} />
+          : renderEditorView()}
+      
+      {/* Help Modal */}
+      <Modal
+        title={
+          <Title level={3} style={{ margin: 0, fontWeight: 700, color: '#f97316' }}>
+            Bracket Helpdesk
+          </Title>
+        }
+        open={helpModalVisible}
+        onCancel={() => setHelpModalVisible(false)}
+        footer={[
+          <Button key="close" type="primary" onClick={() => setHelpModalVisible(false)}>
+            Got it!
+          </Button>
+        ]}
+        width={700}
+      >
+        <Space direction="vertical" size={20} style={{ width: '100%' }}>
+          <div>
+            <Title level={4} style={{ marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>
+              Editor vs Viewer
+            </Title>
+            <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+              • <strong>Editor Mode:</strong> Use this to pair teams and set up your bracket. Drag teams from the Team Pools sidebar into game slots, or click on slots to manually assign teams, or click on the auto-assign teams button.
+            </Text>
+            <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+              • <strong>Viewer Mode:</strong> Click "Viewer" to see your bracket in full visual form based on the games you've paired in the editor. This shows the complete tournament flow.
+            </Text>
+          </div>
+
+          <div>
+            <Title level={4} style={{ marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>
+              Pairing Teams
+            </Title>
+            <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+              • <strong>Drag and Drop:</strong> Drag teams from the Team Pools sidebar and drop them into game slots (the boxes labeled "Team A" or "Team B").
+            </Text>
+            <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+              • <strong>Click to Edit:</strong> Click on any game slot to manually assign a team, create a new team, or set a BYE.
+            </Text>
+            <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+              • <strong>Auto-Assign:</strong> Use the "Auto-Assign Teams" button on each round to automatically pair available teams based on seeding.
+            </Text>
+          </div>
+
+          <div>
+            <Title level={4} style={{ marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>
+              Game Status Colors
+            </Title>
+            <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '24px', height: '24px', borderRadius: '6px', border: '2px solid #16a34a', background: '#f0fdf4' }} />
+                <Text style={{ fontSize: '14px' }}>
+                  <strong>Green Border:</strong> Valid game with both teams properly paired. This game will appear as available in the Courts page.
+                </Text>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '24px', height: '24px', borderRadius: '6px', border: '2px solid #f59e0b', background: '#fffbeb' }} />
+                <Text style={{ fontSize: '14px' }}>
+                  <strong>Yellow/Orange Border:</strong> Game needs teams assigned. Missing one or both teams.
+                </Text>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '24px', height: '24px', borderRadius: '6px', border: '2px solid #dc2626', background: '#fef2f2' }} />
+                <Text style={{ fontSize: '14px' }}>
+                  <strong>Red Border:</strong> Invalid game (e.g., BYE vs BYE in later rounds). Fix this before proceeding.
+                </Text>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '24px', height: '24px', borderRadius: '6px', border: '2px solid #9ca3af', background: '#f3f4f6', opacity: 0.6 }} />
+                <Text style={{ fontSize: '14px' }}>
+                  <strong>Gray Border:</strong> Game is completed.
+                </Text>
+              </div>
+            </Space>
+          </div>
+
+          <div>
+            <Title level={4} style={{ marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>
+              From Editor to Courts
+            </Title>
+            <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+              Once you properly pair teams and the game shows a <strong style={{ color: '#16a34a' }}>green border</strong>, that game becomes available in the <strong>Courts</strong> page. You can then assign it to a court and start playing!
+            </Text>
+            <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block' }}>
+              Games with incomplete pairings (yellow/orange borders) or invalid configurations (red borders) will not appear in the Courts page until they are fixed.
+            </Text>
+          </div>
+
+          <div>
+            <Title level={4} style={{ marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>
+              Tips
+            </Title>
+            <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '4px' }}>
+              • Complete earlier rounds before moving to later rounds
+            </Text>
+            <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '4px' }}>
+              • Use "Clear All Games" to reset a round if needed
+            </Text>
+            <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '4px' }}>
+              • Check the Viewer mode to see how your bracket looks visually
+            </Text>
+            <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block' }}>
+              • Team Pools show which teams are available, assigned, or eliminated
+            </Text>
+          </div>
+        </Space>
+      </Modal>
       
       {/* Edit Slot Modal */}
+      <Modal
+        title={<Title level={3} style={{ margin: 0, fontWeight: 700 }}>Edit Team Slot</Title>}
+        open={!!editingSlot}
+        onCancel={() => {
+          setEditingSlot(null);
+        }}
+        footer={null}
+        width={500}
+      >
       {editingSlot && (() => {
         const allGames = [
           ...tournament.bracket!.winners.flat(),
@@ -1533,112 +2418,55 @@ const renderEditorView = () => {
         );
         
         return (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => {
-            setEditingSlot(null);
-            setNewTeamNameInput('');
-          }}>
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-bold mb-4">Edit Team Slot</h3>
-            <div className="space-y-4">
-              <div>
-                  <label className="block text-sm font-medium mb-2">Select Existing Team</label>
-                  <select
-                    onChange={(e) => {
-                      if (e.target.value === '') {
-                        // Remove team
-                        handleSlotUpdate({ type: 'OPEN' });
-                        setEditingSlot(null);
-                        setNewTeamNameInput('');
-                      } else if (e.target.value === 'BYE') {
-                        handleSlotUpdate({ type: 'BYE' });
-                        setEditingSlot(null);
-                        setNewTeamNameInput('');
-                      } else {
-                        handleSlotUpdate({ type: 'Team', teamId: e.target.value });
-                        setEditingSlot(null);
-                        setNewTeamNameInput('');
-                      }
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    defaultValue={currentSlot.type === 'Team' ? currentSlot.teamId : currentSlot.type}
-                  >
-                    <option value="">Remove (set to OPEN)</option>
-                    <option value="BYE">Set to BYE</option>
-                    {availableTeamsForRound.map(team => (
-                      <option key={team.id} value={team.id}>
-                        {team.name} {team.seed ? `(Seed ${team.seed})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">OR</span>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Create New Team</label>
-                <input
-                  type="text"
-                    value={newTeamNameInput}
-                    onChange={(e) => setNewTeamNameInput(e.target.value)}
-                  onKeyDown={(e) => {
-                      if (e.key === 'Enter' && newTeamNameInput.trim()) {
-                        e.preventDefault();
-                        const newTeam = {
-                          id: `team-${Date.now()}-${Math.random()}`,
-                          name: newTeamNameInput.trim(),
-                        };
-                        addTeam(newTeam);
-                        handleSlotUpdate({ type: 'Team', teamId: newTeam.id });
-                        setEditingSlot(null);
-                        setNewTeamNameInput('');
-                      }
-                    if (e.key === 'Backspace' || e.key === 'Delete') {
-                      e.stopPropagation();
-                    }
-                  }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    placeholder="Enter new team name"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                      if (newTeamNameInput.trim()) {
-                        const newTeam = {
-                          id: `team-${Date.now()}-${Math.random()}`,
-                          name: newTeamNameInput.trim(),
-                        };
-                        addTeam(newTeam);
-                        handleSlotUpdate({ type: 'Team', teamId: newTeam.id });
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <div>
+              <Text strong style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>
+                Select Team
+              </Text>
+              <Select
+                size="large"
+                style={{ width: '100%', borderRadius: '12px' }}
+                placeholder="Select a team"
+                defaultValue={currentSlot.type === 'Team' ? currentSlot.teamId : currentSlot.type}
+                onChange={(value) => {
+                  if (value === '') {
+                    // Remove team
+                    handleSlotUpdate({ type: 'OPEN' });
                     setEditingSlot(null);
-                        setNewTeamNameInput('');
-                      }
-                  }}
-                  className="btn-primary flex-1"
-                    disabled={!newTeamNameInput.trim()}
-                >
-                    Create & Assign
-                </button>
-                <button
-                  onClick={() => {
+                  } else if (value === 'BYE') {
+                    handleSlotUpdate({ type: 'BYE' });
                     setEditingSlot(null);
-                      setNewTeamNameInput('');
-                  }}
-                  className="btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-              </div>
+                  } else {
+                    handleSlotUpdate({ type: 'Team', teamId: value });
+                    setEditingSlot(null);
+                  }
+                }}
+                options={[
+                  { label: 'Remove (set to OPEN)', value: '' },
+                  { label: 'Set to BYE', value: 'BYE' },
+                  ...availableTeamsForRound.map(team => ({
+                    label: `${team.name}${team.seed ? ` (Seed ${team.seed})` : ''}`,
+                    value: team.id,
+                  })),
+                ]}
+              />
             </div>
-          </div>
-        </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <Button
+                onClick={() => {
+                  setEditingSlot(null);
+                }}
+                size="large"
+                style={{ borderRadius: '12px' }}
+              >
+                Close
+              </Button>
+            </div>
+          </Space>
         );
       })()}
-    </div>
+      </Modal>
+      </Content>
+    </Layout>
   );
 }

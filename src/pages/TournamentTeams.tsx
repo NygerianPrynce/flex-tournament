@@ -1,6 +1,28 @@
 import { useState } from 'react';
 import { useTournamentStore } from '../store/tournamentStore';
 import type { Tournament } from '../types';
+import {
+  Layout,
+  Typography,
+  Card,
+  Row,
+  Col,
+  Input,
+  Button,
+  Space,
+  Modal,
+  message,
+  Tag,
+  Alert,
+} from 'antd';
+import {
+  EditOutlined,
+  DeleteOutlined,
+  TeamOutlined,
+} from '@ant-design/icons';
+
+const { Content } = Layout;
+const { Title, Text } = Typography;
 
 interface TournamentTeamsProps {
   tournament?: Tournament;
@@ -13,17 +35,79 @@ export function TournamentTeams({ tournament: propTournament, viewerMode = false
   const { updateTeam, removeTeam, getAllGames } = store;
   const [editingTeam, setEditingTeam] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ teamId: string; teamName: string; uncompletedGames: number } | null>(null);
   
   if (!tournament) {
-    return <div className="p-8">No tournament loaded</div>;
+    return <div style={{ padding: '32px' }}>No tournament loaded</div>;
   }
+
+  // Check if tournament is complete
+  const isTournamentComplete = () => {
+    if (!tournament.bracket) return false;
+    
+    // First check: if there are 0 remaining games, tournament is complete
+    const allGames = getAllGames();
+    const unfinishedGames = allGames.filter(g => {
+      // Exclude BYE vs BYE games
+      if (g.teamA.type === 'BYE' && g.teamB.type === 'BYE') {
+        return false;
+      }
+      return g.status !== 'Finished';
+    });
+    if (unfinishedGames.length === 0) {
+      return true;
+    }
+    
+    // Check if grand final reset is finished (if it exists and was played)
+    if (tournament.bracket.grandFinalReset && 
+        tournament.bracket.grandFinalReset.status === 'Finished' && 
+        tournament.bracket.grandFinalReset.result) {
+      return true;
+    }
+    
+    // Check if grand final is finished AND winners bracket champion won (no reset needed)
+    if (tournament.bracket.grandFinal) {
+      const gf = tournament.bracket.grandFinal;
+      if (gf.status === 'Finished' && gf.result) {
+        // If winners bracket champion won (teamA), tournament is complete
+        // If losers bracket champion won (teamB), reset game should be played
+        const winnerCameFromLosers = gf.teamB.type === 'Team' && gf.teamB.teamId === gf.result.winnerId;
+        if (!winnerCameFromLosers) {
+          // Winners bracket champion won - tournament complete
+          return true;
+        }
+        // Losers bracket champion won - check if reset is finished
+        if (tournament.bracket.grandFinalReset) {
+          return tournament.bracket.grandFinalReset.status === 'Finished' && tournament.bracket.grandFinalReset.result;
+        }
+      }
+    }
+    
+    // Check if final round of winners bracket is finished (single elimination)
+    if (tournament.bracket.winners.length > 0 && !tournament.bracket.grandFinal) {
+      const finalRound = tournament.bracket.winners[tournament.bracket.winners.length - 1];
+      return finalRound.every(game => game.status === 'Finished' && game.result);
+    }
+    
+    return false;
+  };
+
+  const tournamentComplete = isTournamentComplete();
   
   const handleEdit = (teamId: string, currentName: string) => {
+    if (tournamentComplete) {
+      message.warning('Cannot edit teams after the tournament is finished.');
+      return;
+    }
     setEditingTeam(teamId);
     setEditName(currentName);
   };
   
   const handleSaveEdit = (teamId: string) => {
+    if (tournamentComplete) {
+      message.warning('Cannot edit teams after the tournament is finished.');
+      return;
+    }
     if (editName.trim()) {
       const trimmedName = editName.trim();
       const nameLower = trimmedName.toLowerCase();
@@ -34,17 +118,22 @@ export function TournamentTeams({ tournament: propTournament, viewerMode = false
         .map(t => t.name.toLowerCase());
       
       if (existingNames.includes(nameLower)) {
-        alert(`A team with the name "${trimmedName}" already exists. Please use a different name.`);
+        message.error(`A team with the name "${trimmedName}" already exists. Please use a different name.`);
         return;
       }
       
       updateTeam(teamId, { name: trimmedName });
+      message.success('Team name updated successfully!');
     }
     setEditingTeam(null);
     setEditName('');
   };
   
   const handleDelete = (teamId: string, teamName: string) => {
+    if (tournamentComplete) {
+      message.warning('Cannot remove teams after the tournament is finished.');
+      return;
+    }
     // Check if team is in any uncompleted games
     const allGames = getAllGames();
     const uncompletedGames = allGames.filter(g => 
@@ -54,86 +143,188 @@ export function TournamentTeams({ tournament: propTournament, viewerMode = false
        (g.teamB.type === 'Team' && g.teamB.teamId === teamId))
     );
     
-    if (uncompletedGames.length > 0) {
-      const message = `Warning: Deleting "${teamName}" will convert ${uncompletedGames.length} uncompleted game(s) to BYE. This effectively disqualifies the team and removes them from the tournament. Are you sure you want to continue?`;
-      if (!confirm(message)) {
-        return;
-      }
-    }
-    
-    removeTeam(teamId);
+    setDeleteConfirm({ teamId, teamName, uncompletedGames: uncompletedGames.length });
+  };
+
+  const confirmDelete = () => {
+    if (!deleteConfirm) return;
+    removeTeam(deleteConfirm.teamId);
+    setDeleteConfirm(null);
+    message.success('Team removed successfully!');
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirm(null);
   };
   
   return (
-    <div className="p-3 sm:p-4 md:p-6 lg:p-8">
-      <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-sport-orange mb-4 sm:mb-5 md:mb-6">Teams</h2>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-        {tournament.teams.map(team => (
-          <div key={team.id} className="card">
-            {!viewerMode && editingTeam === team.id ? (
-              <div className="space-y-2 flex flex-col items-center">
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sport-orange text-center"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleSaveEdit(team.id);
-                    } else if (e.key === 'Escape') {
-                      setEditingTeam(null);
-                      setEditName('');
-                    }
-                  }}
-                  autoFocus
-                />
-                <div className="flex gap-2 w-full">
-                  <button
-                    onClick={() => handleSaveEdit(team.id)}
-                    className="btn-primary flex-1 text-sm"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingTeam(null);
-                      setEditName('');
-                    }}
-                    className="btn-secondary flex-1 text-sm"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center text-center">
-                <div className="font-semibold text-lg">{team.name}</div>
-                {team.seed && (
-                  <div className="text-sm text-gray-600 mt-1">Seed: {team.seed}</div>
+    <Layout style={{ minHeight: '100vh', background: '#f5f5f5' }}>
+      <Content style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+        <div style={{ marginBottom: '24px' }}>
+          <Title level={2} style={{ 
+            margin: 0, 
+            fontWeight: 700, 
+            fontSize: '32px',
+            color: '#f97316',
+            fontFamily: 'Poppins, sans-serif',
+          }}>
+            <TeamOutlined style={{ marginRight: '12px' }} />
+            Teams
+          </Title>
+        </div>
+        
+        {tournamentComplete && (
+          <Alert
+            message="Tournament is finished. Teams cannot be edited or removed."
+            type="info"
+            showIcon
+            style={{ marginBottom: '24px', borderRadius: '8px' }}
+          />
+        )}
+        
+        <Row gutter={[16, 16]}>
+          {tournament.teams.map(team => (
+            <Col xs={24} sm={12} lg={8} key={team.id}>
+              <Card
+                hoverable
+                style={{
+                  borderRadius: '12px',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                  border: '1px solid #e5e7eb',
+                  height: '100%',
+                }}
+                bodyStyle={{ padding: '20px' }}
+              >
+                {!viewerMode && editingTeam === team.id ? (
+                  <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSaveEdit(team.id);
+                        } else if (e.key === 'Escape') {
+                          setEditingTeam(null);
+                          setEditName('');
+                        }
+                      }}
+                      placeholder="Team name"
+                      size="large"
+                      style={{
+                        textAlign: 'center',
+                        fontSize: '16px',
+                        fontWeight: 600,
+                      }}
+                      autoFocus
+                    />
+                    <Space size={8} style={{ width: '100%', justifyContent: 'center' }}>
+                      <Button
+                        type="primary"
+                        onClick={() => handleSaveEdit(team.id)}
+                        style={{
+                          background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                          border: 'none',
+                          borderRadius: '8px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setEditingTeam(null);
+                          setEditName('');
+                        }}
+                        style={{
+                          borderRadius: '8px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </Space>
+                  </Space>
+                ) : (
+                  <Space direction="vertical" size={12} style={{ width: '100%', alignItems: 'center' }}>
+                    <Text strong style={{ fontSize: '18px', textAlign: 'center', display: 'block' }}>
+                      {team.name}
+                    </Text>
+                    {team.seed && (
+                      <Tag color="orange" style={{ fontSize: '12px', padding: '4px 12px' }}>
+                        Seed: {team.seed}
+                      </Tag>
+                    )}
+                    {!viewerMode && !tournamentComplete && (
+                      <Space size={8} style={{ width: '100%', justifyContent: 'center', marginTop: '8px' }}>
+                        <Button
+                          icon={<EditOutlined />}
+                          onClick={() => handleEdit(team.id, team.name)}
+                          style={{
+                            borderRadius: '8px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={() => handleDelete(team.id, team.name)}
+                          style={{
+                            borderRadius: '8px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </Space>
+                    )}
+                  </Space>
                 )}
-                {!viewerMode && (
-                  <div className="flex gap-2 mt-3 w-full">
-                    <button
-                      onClick={() => handleEdit(team.id, team.name)}
-                      className="btn-secondary flex-1 text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(team.id, team.name)}
-                      className="btn-primary bg-red-500 hover:bg-red-600 flex-1 text-sm"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          title={
+            <span style={{ color: '#ef4444', fontWeight: 700, fontSize: '20px' }}>
+              <DeleteOutlined style={{ marginRight: '8px' }} />
+              Remove Team
+            </span>
+          }
+          open={!!deleteConfirm}
+          onOk={confirmDelete}
+          onCancel={cancelDelete}
+          okText="Remove"
+          okButtonProps={{ danger: true }}
+          cancelText="Cancel"
+          style={{ borderRadius: '12px' }}
+        >
+          {deleteConfirm && (
+            <div>
+              {deleteConfirm.uncompletedGames > 0 ? (
+                <>
+                  <Text strong style={{ color: '#ef4444', display: 'block', marginBottom: '12px' }}>
+                    Warning:
+                  </Text>
+                  <Text style={{ display: 'block', marginBottom: '12px', lineHeight: '1.6' }}>
+                    Removing <strong>"{deleteConfirm.teamName}"</strong> will convert {deleteConfirm.uncompletedGames} uncompleted game{deleteConfirm.uncompletedGames !== 1 ? 's' : ''} to BYE.
+                  </Text>
+                  <Text style={{ display: 'block', color: '#6b7280', lineHeight: '1.6' }}>
+                    This effectively disqualifies the team and removes them from the tournament. Are you sure you want to continue?
+                  </Text>
+                </>
+              ) : (
+                <Text style={{ display: 'block', lineHeight: '1.6' }}>
+                  Are you sure you want to remove <strong>"{deleteConfirm.teamName}"</strong>? This action cannot be undone.
+                </Text>
+              )}
+            </div>
+          )}
+        </Modal>
+      </Content>
+    </Layout>
   );
 }
-

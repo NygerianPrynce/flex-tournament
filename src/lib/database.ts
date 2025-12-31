@@ -399,6 +399,15 @@ export async function getGames(tournamentId: string): Promise<Game[]> {
     status: g.status as Game['status'],
     timers: g.timers as Game['timers'],
     refId: g.ref_id || undefined,
+    refIds: (() => {
+      // Try to get refIds from timers JSONB (for multiple refs support)
+      const timers = g.timers as any;
+      if (timers?.refIds && Array.isArray(timers.refIds)) {
+        return timers.refIds;
+      }
+      // Fall back to single refId for backward compatibility
+      return g.ref_id ? [g.ref_id] : undefined;
+    })(),
     result: g.result as Game['result'] | undefined,
   }));
 }
@@ -421,6 +430,26 @@ export async function saveBracket(tournamentId: string, bracket: Bracket): Promi
   // Winners bracket
   bracket.winners.forEach((round) => {
     round.forEach((game) => {
+      // Store refIds array in timers JSONB, and first ref in ref_id for backward compatibility
+      const refIds = game.refIds || (game.refId ? [game.refId] : []);
+      const timersWithRefIds = {
+        ...game.timers,
+        refIds: refIds.length > 0 ? refIds : undefined,
+      };
+      
+      // Validate courtId is a UUID (database constraint)
+      // If courtId is not a valid UUID (e.g., "court-2"), set it to null
+      let validCourtId: string | null = null;
+      if (game.courtId) {
+        // Check if it's a valid UUID format (8-4-4-4-12 hex characters)
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(game.courtId)) {
+          validCourtId = game.courtId;
+        } else {
+          console.warn(`Invalid courtId format "${game.courtId}" for game ${game.id}, setting to null`);
+        }
+      }
+      
       gamesToInsert.push({
         tournament_id: tournamentId,
         bracket_type: game.bracketType,
@@ -429,10 +458,10 @@ export async function saveBracket(tournamentId: string, bracket: Bracket): Promi
         team_a: game.teamA,
         team_b: game.teamB,
         status: game.status,
-        court_id: game.courtId || null,
-        ref_id: game.refId || null,
+        court_id: validCourtId,
+        ref_id: refIds[0] || null, // Store first ref for backward compatibility
         result: game.result || null,
-        timers: game.timers,
+        timers: timersWithRefIds,
         scheduled_order: game.scheduledOrder,
       });
     });
@@ -441,6 +470,26 @@ export async function saveBracket(tournamentId: string, bracket: Bracket): Promi
   // Losers bracket
   bracket.losers.forEach((round) => {
     round.forEach((game) => {
+      // Store refIds array in timers JSONB, and first ref in ref_id for backward compatibility
+      const refIds = game.refIds || (game.refId ? [game.refId] : []);
+      const timersWithRefIds = {
+        ...game.timers,
+        refIds: refIds.length > 0 ? refIds : undefined,
+      };
+      
+      // Validate courtId is a UUID (database constraint)
+      // If courtId is not a valid UUID (e.g., "court-2"), set it to null
+      let validCourtId: string | null = null;
+      if (game.courtId) {
+        // Check if it's a valid UUID format (8-4-4-4-12 hex characters)
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(game.courtId)) {
+          validCourtId = game.courtId;
+        } else {
+          console.warn(`Invalid courtId format "${game.courtId}" for game ${game.id}, setting to null`);
+        }
+      }
+      
       gamesToInsert.push({
         tournament_id: tournamentId,
         bracket_type: game.bracketType,
@@ -449,10 +498,10 @@ export async function saveBracket(tournamentId: string, bracket: Bracket): Promi
         team_a: game.teamA,
         team_b: game.teamB,
         status: game.status,
-        court_id: game.courtId || null,
-        ref_id: game.refId || null,
+        court_id: validCourtId,
+        ref_id: refIds[0] || null, // Store first ref for backward compatibility
         result: game.result || null,
-        timers: game.timers,
+        timers: timersWithRefIds,
         scheduled_order: game.scheduledOrder,
       });
     });
@@ -461,6 +510,23 @@ export async function saveBracket(tournamentId: string, bracket: Bracket): Promi
   // Grand final
   if (bracket.grandFinal) {
     const game = bracket.grandFinal;
+    // Validate courtId is a UUID (database constraint)
+    let validCourtId: string | null = null;
+    if (game.courtId) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(game.courtId)) {
+        validCourtId = game.courtId;
+      } else {
+        console.warn(`Invalid courtId format "${game.courtId}" for game ${game.id}, setting to null`);
+      }
+    }
+    
+    const refIds = game.refIds || (game.refId ? [game.refId] : []);
+    const timersWithRefIds = {
+      ...game.timers,
+      refIds: refIds.length > 0 ? refIds : undefined,
+    };
+    
     gamesToInsert.push({
       tournament_id: tournamentId,
       bracket_type: game.bracketType,
@@ -469,10 +535,46 @@ export async function saveBracket(tournamentId: string, bracket: Bracket): Promi
       team_a: game.teamA,
       team_b: game.teamB,
       status: game.status,
-      court_id: game.courtId || null,
-      ref_id: game.refId || null,
+      court_id: validCourtId,
+      ref_id: refIds[0] || null,
       result: game.result || null,
-      timers: game.timers,
+      timers: timersWithRefIds,
+      scheduled_order: game.scheduledOrder,
+    });
+  }
+
+  // Grand final reset
+  if (bracket.grandFinalReset) {
+    const game = bracket.grandFinalReset;
+    // Validate courtId is a UUID (database constraint)
+    let validCourtId: string | null = null;
+    if (game.courtId) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(game.courtId)) {
+        validCourtId = game.courtId;
+      } else {
+        console.warn(`Invalid courtId format "${game.courtId}" for game ${game.id}, setting to null`);
+      }
+    }
+    
+    const refIds = game.refIds || (game.refId ? [game.refId] : []);
+    const timersWithRefIds = {
+      ...game.timers,
+      refIds: refIds.length > 0 ? refIds : undefined,
+    };
+    
+    gamesToInsert.push({
+      tournament_id: tournamentId,
+      bracket_type: game.bracketType,
+      round: game.round,
+      match_number: game.matchNumber,
+      team_a: game.teamA,
+      team_b: game.teamB,
+      status: game.status,
+      court_id: validCourtId,
+      ref_id: refIds[0] || null,
+      result: game.result || null,
+      timers: timersWithRefIds,
       scheduled_order: game.scheduledOrder,
     });
   }
@@ -494,8 +596,33 @@ export async function updateGame(gameId: string, updates: Partial<Game>): Promis
   if (updates.teamA !== undefined) updateData.team_a = updates.teamA;
   if (updates.teamB !== undefined) updateData.team_b = updates.teamB;
   if (updates.status !== undefined) updateData.status = updates.status;
-  if (updates.courtId !== undefined) updateData.court_id = updates.courtId || null;
+  if (updates.courtId !== undefined) {
+    // Validate courtId is a UUID (database constraint)
+    // If courtId is not a valid UUID (e.g., "court-2"), set it to null
+    let validCourtId: string | null = null;
+    if (updates.courtId) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(updates.courtId)) {
+        validCourtId = updates.courtId;
+      } else {
+        console.warn(`Invalid courtId format "${updates.courtId}" for game ${gameId}, setting to null`);
+      }
+    }
+    updateData.court_id = validCourtId;
+  }
   if (updates.refId !== undefined) updateData.ref_id = updates.refId || null;
+  if (updates.refIds !== undefined) {
+    // Store refIds array in timers JSONB
+    const currentGame = await supabase.from('games').select('timers').eq('id', gameId).single();
+    const currentTimers = currentGame.data?.timers || {};
+    const timersWithRefIds = {
+      ...currentTimers,
+      refIds: updates.refIds && updates.refIds.length > 0 ? updates.refIds : undefined,
+    };
+    updateData.timers = timersWithRefIds;
+    // Also update ref_id with first ref for backward compatibility
+    updateData.ref_id = updates.refIds && updates.refIds.length > 0 ? updates.refIds[0] : null;
+  }
   if (updates.result !== undefined) updateData.result = updates.result || null;
   if (updates.timers !== undefined) updateData.timers = updates.timers;
 
@@ -512,6 +639,7 @@ export async function updateGame(gameId: string, updates: Partial<Game>): Promis
 // Helper to reconstruct bracket from flat games array
 function reconstructBracket(games: Game[]): Bracket {
   let grandFinal: Game | undefined;
+  let grandFinalReset: Game | undefined;
 
   // Deduplicate games: keep only one game per round/matchNumber combination
   // Use a Map to track seen games, keeping the most recently updated one (by updated_at or id)
@@ -540,7 +668,12 @@ function reconstructBracket(games: Game[]): Bracket {
 
   deduplicatedGames.forEach(game => {
     if (game.bracketType === 'Final') {
-      grandFinal = game;
+      // Distinguish between grand final and grand final reset by game ID
+      if (game.id === 'grand-final-reset' || game.id.startsWith('grand-final-reset-')) {
+        grandFinalReset = game;
+      } else {
+        grandFinal = game;
+      }
     } else if (game.bracketType === 'W') {
       if (!winnersByRound[game.round]) {
         winnersByRound[game.round] = [];
@@ -575,6 +708,7 @@ function reconstructBracket(games: Game[]): Bracket {
     winners: winnersRounds,
     losers: losersRounds,
     grandFinal,
+    grandFinalReset,
   };
 }
 

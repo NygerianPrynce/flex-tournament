@@ -32,3 +32,22 @@ export function getRoundNameFromGame(gameRound: number, bracketRounds: Game[][])
   return getRoundName(roundIndex, bracketRounds.length, gamesInRound);
 }
 
+// Helper function to get losers bracket round name
+// Uses the same naming logic as winners bracket (Final, Semi Finals, Quarter Finals, Round of X)
+export function getLosersRoundName(roundIndex: number, totalRounds: number, gamesInRound: number): string {
+  // Use the same logic as getRoundName, but prefix with "Losers" for clarity
+  const roundFromEnd = totalRounds - roundIndex;
+  
+  if (roundFromEnd === 1) {
+    return 'Final';
+  } else if (roundFromEnd === 2) {
+    return 'Semi Finals';
+  } else if (roundFromEnd === 3) {
+    return 'Quarter Finals';
+  } else {
+    // For earlier rounds, use "Round of X" where X is the number of teams
+    const teamsInRound = gamesInRound * 2;
+    return `Round of ${teamsInRound}`;
+  }
+}
+

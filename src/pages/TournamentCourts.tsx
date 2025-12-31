@@ -6,8 +6,28 @@ import { CourtCard } from '../components/CourtCard';
 import { useTournamentStore } from '../store/tournamentStore';
 import type { Game, Tournament } from '../types';
 import { updateGameTimers } from '../lib/timer';
-import { getRoundNameFromGame, getRoundName } from '../lib/roundNames';
+import { getRoundNameFromGame, getRoundName, getLosersRoundName } from '../lib/roundNames';
 import { useSport } from '../hooks/useSport';
+import {
+  Layout,
+  Typography,
+  Button,
+  Card,
+  Space,
+  Row,
+  Col,
+  Alert,
+  Select,
+  Modal,
+  message,
+} from 'antd';
+import {
+  HomeOutlined,
+  QuestionCircleOutlined,
+} from '@ant-design/icons';
+
+const { Content } = Layout;
+const { Title, Text } = Typography;
 
 interface TournamentCourtsProps {
   tournament?: Tournament;
@@ -40,6 +60,10 @@ function GamePoolItem({ game, teams, tournament, viewerMode = false }: { game: G
     if (!tournament?.bracket) return `Round ${game.round}`;
     
     if (game.bracketType === 'Final') {
+      // Check if it's the reset game
+      if (game.id === 'grand-final-reset') {
+        return 'Grand Final Reset';
+      }
       return 'Grand Final';
     }
     
@@ -48,11 +72,11 @@ function GamePoolItem({ game, teams, tournament, viewerMode = false }: { game: G
     let roundName: string;
     
     if (game.bracketType === 'L' && tournament.bracket.losers) {
-      // For losers bracket, use losers rounds
+      // For losers bracket, use losers-specific round naming
       const roundIndex = game.round - 1;
       if (roundIndex >= 0 && roundIndex < tournament.bracket.losers.length) {
         const gamesInRound = tournament.bracket.losers[roundIndex]?.length || 0;
-        roundName = getRoundName(roundIndex, tournament.bracket.losers.length, gamesInRound);
+        roundName = getLosersRoundName(roundIndex, tournament.bracket.losers.length, gamesInRound);
       } else {
         roundName = `Round ${game.round}`;
       }
@@ -65,34 +89,55 @@ function GamePoolItem({ game, teams, tournament, viewerMode = false }: { game: G
   };
   
   return (
-    <div
+    <Card
       ref={setNodeRef}
-      style={style}
+      style={{
+        ...style,
+        border: '2px solid #16a34a',
+        borderRadius: '12px',
+        cursor: viewerMode ? 'default' : 'move',
+        transition: 'all 0.2s ease',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+      }}
       {...(!viewerMode ? { ...attributes, ...listeners } : {})}
-      className={`card transition-shadow border-2 border-sport-green p-2 sm:p-3 md:p-4 ${viewerMode ? '' : 'cursor-move hover:shadow-lg'}`}
+      hoverable={!viewerMode}
+      bodyStyle={{ padding: '12px' }}
     >
-      <div className="text-center">
-        <div className="text-xs sm:text-xs md:text-sm text-gray-500 mb-1 font-medium truncate">{getRoundNameWithBracket()}</div>
-        <div className="text-xs sm:text-sm md:text-base font-semibold truncate">{getTeamName(game.teamA)}</div>
-        <div className="text-sport-green font-bold my-0.5 sm:my-1 text-xs sm:text-xs md:text-sm">VS</div>
-        <div className="text-xs sm:text-sm md:text-base font-semibold truncate">{getTeamName(game.teamB)}</div>
+      <div style={{ textAlign: 'center' }}>
+        <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+          {getRoundNameWithBracket()}
+        </Text>
+        <Text strong style={{ fontSize: '13px', display: 'block' }}>
+          {getTeamName(game.teamA)}
+        </Text>
+        <Text strong style={{ fontSize: '11px', color: '#16a34a', fontWeight: 700, display: 'block', margin: '4px 0' }}>
+          VS
+        </Text>
+        <Text strong style={{ fontSize: '13px', display: 'block' }}>
+          {getTeamName(game.teamB)}
+        </Text>
       </div>
-    </div>
+    </Card>
   );
 }
 
-function DroppableCourt({ court, game, onEdit, onRemove, viewerMode = false }: { court: { id: string; name: string }; game: Game | null; onEdit: () => void; onRemove?: () => void; viewerMode?: boolean }) {
+function DroppableCourt({ court, game, onEdit, onRemove, viewerMode = false, tournamentComplete = false }: { court: { id: string; name: string }; game: Game | null; onEdit: () => void; onRemove?: () => void; viewerMode?: boolean; tournamentComplete?: boolean }) {
   const { setNodeRef, isOver } = useSortable({ 
     id: `court-${court.id}`,
-    disabled: viewerMode // Disable dropping in viewer mode
+    disabled: viewerMode || tournamentComplete // Disable dropping in viewer mode or when tournament is complete
   });
   
   return (
     <div
       ref={setNodeRef}
-      className={isOver && !viewerMode ? 'ring-4 ring-sport-orange rounded-lg' : ''}
+      style={{
+        outline: isOver && !viewerMode && !tournamentComplete ? '4px solid #f97316' : 'none',
+        outlineOffset: '4px',
+        borderRadius: '12px',
+        transition: 'all 0.2s ease',
+      }}
     >
-      <CourtCard court={court} game={game} onEdit={onEdit} onRemove={onRemove} viewerMode={viewerMode} />
+      <CourtCard court={court} game={game} onEdit={onEdit} onRemove={onRemove} viewerMode={viewerMode} tournamentComplete={tournamentComplete} />
     </div>
   );
 }
@@ -100,10 +145,11 @@ function DroppableCourt({ court, game, onEdit, onRemove, viewerMode = false }: {
 export function TournamentCourts({ tournament: propTournament, viewerMode = false }: TournamentCourtsProps = {} as TournamentCourtsProps) {
   const store = useTournamentStore();
   const tournament = propTournament || store.tournament;
-  const { autoAssignGames, autoAssignRefs, updateGameTimer, getAllGames, assignGameToCourt, unassignGameFromCourt, clearAllCourts, pauseGame, resumeGame } = store;
+  const { autoAssignGames, autoAssignRefs, updateGameTimer, getAllGames, assignGameToCourt, unassignGameFromCourt, clearAllCourts, pauseGame, resumeGame, finishGame } = store;
   const { venueTermPlural } = useSport();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingCourt, setEditingCourt] = useState<string | null>(null);
+  const [helpModalVisible, setHelpModalVisible] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -113,15 +159,23 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
   
   if (!tournament || !tournament.bracket) {
     return (
-      <div className="p-3 sm:p-4 md:p-6 lg:p-8">
-        <div className="text-center text-gray-400 py-8">
-          {!tournament 
-            ? 'No tournament loaded' 
-            : viewerMode 
-              ? 'Bracket has not yet been generated.' 
-              : 'Bracket not generated yet. Please generate bracket first.'}
+      <Layout style={{ minHeight: '100vh', background: '#f9fafb' }}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+          * { font-family: 'Poppins', sans-serif; }
+        `}</style>
+        <Content style={{ padding: '24px' }}>
+          <div style={{ textAlign: 'center', color: '#9ca3af', padding: '48px 0' }}>
+            <Text style={{ fontSize: '16px' }}>
+              {!tournament 
+                ? 'No tournament loaded' 
+                : viewerMode 
+                  ? 'Bracket has not yet been generated.' 
+                  : 'Bracket not generated yet. Please generate bracket first.'}
+            </Text>
         </div>
-      </div>
+        </Content>
+      </Layout>
     );
   }
   
@@ -140,13 +194,46 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
   const isTournamentComplete = () => {
     if (!tournament.bracket) return false;
     
-    // Check if grand final is finished
-    if (tournament.bracket.grandFinal) {
-      return tournament.bracket.grandFinal.status === 'Finished' && tournament.bracket.grandFinal.result;
+    // First check: if there are 0 remaining games, tournament is complete
+    const allGames = getAllGames();
+    const unfinishedGames = allGames.filter(g => {
+      // Exclude BYE vs BYE games
+      if (g.teamA.type === 'BYE' && g.teamB.type === 'BYE') {
+        return false;
+      }
+      return g.status !== 'Finished';
+    });
+    if (unfinishedGames.length === 0) {
+      return true;
     }
     
-    // Check if final round of winners bracket is finished
-    if (tournament.bracket.winners.length > 0) {
+    // Check if grand final reset is finished (if it exists and was played)
+    if (tournament.bracket.grandFinalReset && 
+        tournament.bracket.grandFinalReset.status === 'Finished' && 
+        tournament.bracket.grandFinalReset.result) {
+      return true;
+    }
+    
+    // Check if grand final is finished AND winners bracket champion won (no reset needed)
+    if (tournament.bracket.grandFinal) {
+      const gf = tournament.bracket.grandFinal;
+      if (gf.status === 'Finished' && gf.result) {
+        // If winners bracket champion won (teamA), tournament is complete
+        // If losers bracket champion won (teamB), reset game should be played
+        const winnerCameFromLosers = gf.teamB.type === 'Team' && gf.teamB.teamId === gf.result.winnerId;
+        if (!winnerCameFromLosers) {
+          // Winners bracket champion won - tournament complete
+          return true;
+        }
+        // Losers bracket champion won - check if reset is finished
+        if (tournament.bracket.grandFinalReset) {
+          return tournament.bracket.grandFinalReset.status === 'Finished' && tournament.bracket.grandFinalReset.result;
+        }
+      }
+    }
+    
+    // Check if final round of winners bracket is finished (single elimination)
+    if (tournament.bracket.winners.length > 0 && !tournament.bracket.grandFinal) {
       const finalRound = tournament.bracket.winners[tournament.bracket.winners.length - 1];
       return finalRound.every(game => game.status === 'Finished' && game.result);
     }
@@ -187,7 +274,33 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
     
     return allGames.filter(g => {
       if (!g.courtId && g.status === 'Queued') {
-        // Restrict to the current winners round if known
+        // Losers bracket games: available as soon as both slots are filled (no round restriction)
+        if (g.bracketType === 'L') {
+          // Both slots must be filled (no OPEN)
+          if (g.teamA.type === 'OPEN' || g.teamB.type === 'OPEN') return false;
+          // Both must be either Team or BYE
+          if (!((g.teamA.type === 'Team' || g.teamA.type === 'BYE') &&
+                (g.teamB.type === 'Team' || g.teamB.type === 'BYE'))) {
+            return false;
+          }
+          // Not BYE vs BYE
+          if (isByeVsBye(g)) return false;
+          // At least one must be a real team
+          return g.teamA.type === 'Team' || g.teamB.type === 'Team';
+        }
+        
+        // Grand final and grand final reset: available when both slots are filled
+        if (g.bracketType === 'Final') {
+          if (g.teamA.type === 'OPEN' || g.teamB.type === 'OPEN') return false;
+          if (!((g.teamA.type === 'Team' || g.teamA.type === 'BYE') &&
+                (g.teamB.type === 'Team' || g.teamB.type === 'BYE'))) {
+            return false;
+          }
+          if (isByeVsBye(g)) return false;
+          return g.teamA.type === 'Team' || g.teamB.type === 'Team';
+        }
+        
+        // Winners bracket games: restrict to the current winners round if known
         if (currentRoundNumber !== null && g.round !== currentRoundNumber) {
           return false;
         }
@@ -240,15 +353,30 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
       const hasOpen =
         g.teamA.type === 'OPEN' || g.teamB.type === 'OPEN';
       
-      // Determine if this is a final-round game
-      const isFinalRoundGame =
-        finalRoundNumber !== null && g.round === finalRoundNumber;
-
-      // Restrict to the current winners round if known
+      // Losers bracket games: available as soon as both slots are filled (no round restriction)
+      if (g.bracketType === 'L') {
+        if (bothOpen) return false;
+        if (hasOpen) return false;
+        // Both slots must be Team or BYE, at least one Team
+        return (g.teamA.type === 'Team' || g.teamB.type === 'Team');
+      }
+      
+      // Grand final and grand final reset: available when both slots are filled
+      if (g.bracketType === 'Final') {
+        if (bothOpen) return false;
+        if (hasOpen) return false;
+        return (g.teamA.type === 'Team' || g.teamB.type === 'Team');
+      }
+      
+      // Winners bracket games: restrict to the current winners round if known
       if (currentRoundNumber !== null && g.round !== currentRoundNumber) {
         return false;
       }
       
+      // Determine if this is a final-round game
+      const isFinalRoundGame =
+        finalRoundNumber !== null && g.round === finalRoundNumber;
+
       // For the final round, only show fully eligible games:
       // both slots must be Team or BYE (no OPEN in either slot)
       if (isFinalRoundGame) {
@@ -277,16 +405,28 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
             gameLengthMinutes: tournament.settings.gameLengthMinutes,
             flexMinutes: tournament.settings.flexMinutes,
           });
+          
+          // Store the old phase before updating
+          const oldPhase = game.timers.currentPhase;
+          
+          // Update the timer state
           updateGameTimer(game.id, updates);
           
           // Auto-transition phases
-          if (updates.currentPhase === 'game' && game.timers.currentPhase === 'warmup') {
+          if (updates.currentPhase === 'game' && oldPhase === 'warmup') {
             useTournamentStore.getState().updateGame(game.id, { status: 'Live' });
-          } else if (updates.currentPhase === 'flex' && game.timers.currentPhase === 'game') {
+          } else if (updates.currentPhase === 'flex' && oldPhase === 'game') {
             useTournamentStore.getState().updateGame(game.id, { status: 'Flex' });
-          } else if (updates.currentPhase === 'overtime' && game.timers.currentPhase === 'flex') {
-            // Transition to overtime - keep game in Flex status but show overtime timer
-            useTournamentStore.getState().updateGame(game.id, { status: 'Flex' });
+          } else if (updates.currentPhase === 'overtime' && oldPhase === 'flex') {
+            // Transition to overtime - keep game in Flex status but ensure timer state is updated
+            // The timer state is already updated by updateGameTimer, just ensure it's persisted
+            useTournamentStore.getState().updateGame(game.id, { 
+              status: 'Flex',
+              timers: {
+                ...game.timers,
+                ...updates,
+              }
+            });
           }
           // Note: Game no longer auto-finishes - user must manually end the game
         }
@@ -339,7 +479,26 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
     }
     
     queuedGames.forEach(game => {
+      // Use the same logic as the individual start button in CourtCard
+      // Check for BYE games - if it's a BYE game, auto-finish it instead of starting it
+      const isByeGame = game.teamA.type === 'BYE' || game.teamB.type === 'BYE';
+      
+      if (isByeGame) {
+        // BYE game - auto-win with score 1-0 (same logic as CourtCard handleStart)
+        const winnerId = game.teamA.type === 'BYE' 
+          ? (game.teamB.type === 'Team' ? game.teamB.teamId! : '')
+          : (game.teamA.type === 'Team' ? game.teamA.teamId! : '');
+        
+        if (winnerId) {
+          // Score is 1-0: non-BYE team gets 1, BYE gets 0
+          const scoreA = game.teamA.type === 'BYE' ? 0 : 1;
+          const scoreB = game.teamB.type === 'BYE' ? 0 : 1;
+          finishGame(game.id, winnerId, scoreA, scoreB);
+        }
+      } else {
+        // Regular game - start it normally
       useTournamentStore.getState().startGame(game.id);
+      }
     });
   };
   
@@ -412,116 +571,278 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
   const activeGame = activeId ? getAllGames().find(g => g.id === activeId) : null;
   
   return (
+    <Layout style={{ minHeight: '100vh', background: '#f9fafb' }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+        * { font-family: 'Poppins', sans-serif; }
+      `}</style>
     <DndContext
-      sensors={viewerMode ? [] : sensors}
+        sensors={viewerMode ? [] : sensors}
       collisionDetection={closestCenter}
-      onDragStart={viewerMode ? undefined : handleDragStart}
-      onDragEnd={viewerMode ? undefined : handleDragEnd}
-    >
-      <div className="p-3 sm:p-4 md:p-6 lg:p-8">
-        {tournamentComplete && (
-          <div className="mb-4 md:mb-6 p-3 md:p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="text-green-800 font-semibold text-base md:text-lg">
-              🏆 Tournament Complete! No more games available.
+        onDragStart={viewerMode ? undefined : handleDragStart}
+        onDragEnd={viewerMode ? undefined : handleDragEnd}
+      >
+        <Content style={{ padding: '24px', maxWidth: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <HomeOutlined style={{ fontSize: '32px', color: '#f97316' }} />
+              <Title level={2} style={{ margin: 0, fontSize: '32px', fontWeight: 800, color: '#f97316' }}>
+                {venueTermPlural}
+              </Title>
             </div>
-          </div>
-        )}
-        <div className="mb-3 sm:mb-4 md:mb-6 flex flex-col md:flex-row md:justify-between md:items-center gap-3 sm:gap-4">
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-sport-orange">{venueTermPlural}</h2>
-          {!viewerMode && (
-            <div className="flex flex-wrap gap-1.5 md:gap-2">
-              <button 
-                onClick={autoAssignGames} 
-                className="btn-primary"
-                disabled={tournamentComplete === true}
-              >
-                Auto-Assign Games
-              </button>
-              {tournament.refs.length > 0 && tournament.settings.useRefs !== false && (
-                <button 
-                  onClick={autoAssignRefs} 
-                  className="btn-primary"
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+              {!viewerMode && !tournamentComplete && (
+                <Space size={6} style={{ display: 'flex', flexWrap: 'nowrap' }}>
+                  <Button
+                  type="primary"
+                  onClick={autoAssignGames}
+                  disabled={tournamentComplete === true}
+                  style={{
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    height: '36px',
+                    padding: '0 12px',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                    border: 'none',
+                    boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)',
+                  }}
                 >
-                  Auto-Assign Referees
-                </button>
+              Auto-Assign Games
+                </Button>
+                {tournament.refs.length > 0 && tournament.settings.useRefs !== false && (
+                  <Button
+                    type="primary"
+                    onClick={() => {
+                      const allGames = getAllGames();
+                      const gamesOnCourts = allGames.filter(g => g.courtId && g.status !== 'Finished');
+                      if (gamesOnCourts.length === 0) {
+                        message.info('No games are currently assigned to courts. Assign games to courts first.');
+                        return;
+                      }
+                      autoAssignRefs();
+                    }}
+                    style={{
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      height: '36px',
+                      padding: '0 12px',
+                      fontWeight: 600,
+                      whiteSpace: 'nowrap',
+                      background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                      border: 'none',
+                      boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)',
+                    }}
+                  >
+                    Auto-Assign Referees
+                  </Button>
+                )}
+                <Button
+                  type="primary"
+                  onClick={handleStartAll}
+                  style={{
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    height: '36px',
+                    padding: '0 12px',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                    border: 'none',
+                    boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)',
+                  }}
+                >
+              Start All Games
+                </Button>
+                {hasPausedGames ? (
+                  <Button
+                    onClick={handleResumeAll}
+                    style={{
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      height: '36px',
+                      padding: '0 12px',
+                      fontWeight: 600,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Resume All
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handlePauseAll}
+                    style={{
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      height: '36px',
+                      padding: '0 12px',
+                      fontWeight: 600,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+              Pause All
+                  </Button>
+                )}
+                <Button
+                  onClick={handleRestartAll}
+                  style={{
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    height: '36px',
+                    padding: '0 12px',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Restart All Games
+                </Button>
+                <Button
+                  danger
+                  onClick={() => {
+                    const allGames = getAllGames();
+                    const gamesInProgress = allGames.filter(g => 
+                      g.courtId && (g.status === 'Warmup' || g.status === 'Live' || g.status === 'Flex' || g.status === 'Paused')
+                    );
+                    const gamesToClear = allGames.filter(g => 
+                      g.courtId && g.status === 'Queued'
+                    );
+                    
+                    if (gamesToClear.length === 0) {
+                      message.info('No games to clear. All games are currently in progress.');
+                      return;
+                    }
+                    
+                    Modal.confirm({
+                      title: 'Clear All Courts',
+                      content: gamesInProgress.length > 0
+                        ? `Are you sure you want to clear ${gamesToClear.length} game(s) from all ${venueTermPlural.toLowerCase()}? ${gamesInProgress.length} game(s) are currently in progress and will not be cleared.`
+                        : `Clear all games from all ${venueTermPlural.toLowerCase()}? Games will be returned to the available games section.`,
+                      onOk: () => {
+                        clearAllCourts();
+                        if (gamesInProgress.length > 0) {
+                          message.warning(`${gamesInProgress.length} or more match(es) were unable to be cleared because they are in progress.`);
+                        }
+                      },
+                      okText: 'Clear',
+                      okButtonProps: { danger: true },
+                    });
+                  }}
+                  style={{
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    height: '36px',
+                    padding: '0 12px',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Clear All {venueTermPlural}
+                </Button>
+              </Space>
               )}
-              <button onClick={handleStartAll} className="btn-primary">
-                Start All Games
-              </button>
-              {hasPausedGames ? (
-                <button onClick={handleResumeAll} className="btn-secondary">
-                  Resume All
-                </button>
-              ) : (
-                <button onClick={handlePauseAll} className="btn-secondary">
-                  Pause All
-                </button>
+              {!viewerMode && (
+                <Button
+                  icon={<QuestionCircleOutlined />}
+                  onClick={() => setHelpModalVisible(true)}
+                  style={{
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    height: '36px',
+                    padding: '0 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Help
+                </Button>
               )}
-              <button onClick={handleRestartAll} className="btn-secondary">
-                Restart All Games
-              </button>
-              <button 
-                onClick={() => {
-                  if (confirm(`Clear all games from all ${venueTermPlural.toLowerCase()}? Games will be returned to the available games section.`)) {
-                    clearAllCourts();
-                  }
-                }} 
-                className="btn-secondary"
-              >
-                Clear All {venueTermPlural}
-              </button>
             </div>
-          )}
-        </div>
-        
-        {/* Available Games Pool */}
-        {availableGames.length > 0 && (
-          <div className="mb-4 md:mb-6">
-            <h3 className="text-base md:text-lg font-semibold mb-2 md:mb-3">Available Games</h3>
-            <SortableContext items={availableGames.map(g => g.id)}>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-2.5 md:gap-3">
-                {availableGames.map(game => (
-                  <GamePoolItem key={game.id} game={game} teams={tournament.teams} tournament={tournament} viewerMode={viewerMode} />
-                ))}
-              </div>
-            </SortableContext>
           </div>
+          
+          {tournamentComplete && (
+            <Alert
+              message="Tournament is finished. Courts are no longer in use."
+              type="info"
+              showIcon
+              style={{ marginBottom: '24px', borderRadius: '8px' }}
+            />
+          )}
+        
+          {/* Available Games Pool */}
+        {availableGames.length > 0 && (
+            <Card
+              style={{
+                marginBottom: '24px',
+                borderRadius: '16px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                border: '1px solid #e5e7eb',
+              }}
+              bodyStyle={{ padding: '24px' }}
+            >
+              <Title level={4} style={{ marginBottom: '16px', fontSize: '20px', fontWeight: 700 }}>
+                Available Games
+              </Title>
+            <SortableContext items={availableGames.map(g => g.id)}>
+                <Row gutter={[12, 12]}>
+                {availableGames.map(game => (
+                    <Col xs={12} sm={8} md={6} lg={4} xl={3} key={game.id}>
+                      <GamePoolItem game={game} teams={tournament.teams} tournament={tournament} viewerMode={viewerMode} />
+                    </Col>
+                ))}
+                </Row>
+            </SortableContext>
+            </Card>
         )}
         
         {/* Courts */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+          <Row gutter={[16, 16]}>
           {tournament.courts.map(court => {
             const game = getGameForCourt(court.id);
             const eligibleGames = editingCourt === court.id ? getEligibleGames(court.id) : [];
             
             return (
-              <div key={court.id}>
+                <Col xs={24} sm={12} lg={8} key={court.id}>
                 <DroppableCourt
                   court={court}
                   game={game}
                   onEdit={() => handleEditCourt(court.id)}
-                  onRemove={() => {
-                    if (game && game.status === 'Queued') {
-                      unassignGameFromCourt(game.id);
-                    }
-                  }}
-                  viewerMode={viewerMode}
-                />
-                
-                {/* Edit Court Dropdown - Hidden in viewer mode */}
-                {!viewerMode && editingCourt === court.id && (
-                  <div className="mt-2 card">
-                    <div className="mb-2 font-semibold">Select Game:</div>
-                    <select
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          handleSelectGameForCourt(court.id, e.target.value);
-                        }
+                    onRemove={() => {
+                      if (game && game.status === 'Queued') {
+                        unassignGameFromCourt(game.id);
+                      }
+                    }}
+                    viewerMode={viewerMode || tournamentComplete}
+                    tournamentComplete={tournamentComplete}
+                  />
+                  
+                  {/* Edit Court Dropdown - Hidden in viewer mode */}
+                  {!viewerMode && editingCourt === court.id && (
+                    <Card
+                      style={{
+                        marginTop: '12px',
+                        borderRadius: '12px',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                        border: '1px solid #e5e7eb',
                       }}
-                      value=""
+                      bodyStyle={{ padding: '16px' }}
                     >
-                      <option value="">Choose a game...</option>
+                      <Text strong style={{ display: 'block', marginBottom: '12px', fontSize: '14px' }}>
+                        Select Game:
+                      </Text>
+                      <Select
+                        style={{ width: '100%', marginBottom: '12px' }}
+                        placeholder="Choose a game..."
+                        onChange={(value) => {
+                          if (value) {
+                            handleSelectGameForCourt(court.id, value);
+                          }
+                        }}
+                        value={undefined}
+                      >
                       {eligibleGames.map(g => {
                         const getTeamName = (slot: Game['teamA']) => {
                           if (slot.type === 'Team' && slot.teamId) {
@@ -532,41 +853,161 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
                           return 'TBD';
                         };
                         return (
-                          <option key={g.id} value={g.id}>
-                            {getTeamName(g.teamA)} vs {getTeamName(g.teamB)} ({tournament.bracket ? getRoundNameFromGame(g.round, tournament.bracket.winners) : `Round ${g.round}`})
-                          </option>
+                            <Select.Option key={g.id} value={g.id}>
+                              {getTeamName(g.teamA)} vs {getTeamName(g.teamB)} ({tournament.bracket ? getRoundNameFromGame(g.round, tournament.bracket.winners) : `Round ${g.round}`})
+                            </Select.Option>
                         );
                       })}
-                    </select>
-                    <button
+                      </Select>
+                      <Button
+                        block
                       onClick={() => setEditingCourt(null)}
-                      className="btn-secondary w-full mt-2"
+                        style={{
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          height: '36px',
+                        }}
                     >
                       Cancel
-                    </button>
-                  </div>
+                      </Button>
+                    </Card>
                 )}
-              </div>
+                </Col>
             );
           })}
-        </div>
-      </div>
+          </Row>
+        </Content>
       
       <DragOverlay>
         {activeGame ? (
-          <div className="card border-2 border-sport-orange opacity-90">
-            <div className="text-center">
-              <div className="font-semibold">
+            <Card
+              style={{
+                border: '2px solid #f97316',
+                borderRadius: '12px',
+                opacity: 0.9,
+                boxShadow: '0 4px 16px rgba(249, 115, 22, 0.3)',
+                background: '#ffffff',
+              }}
+              bodyStyle={{ padding: '16px' }}
+            >
+              <div style={{ textAlign: 'center' }}>
+                <Text strong style={{ fontSize: '14px', display: 'block' }}>
                 {activeGame.teamA.type === 'Team' ? tournament.teams.find(t => t.id === activeGame.teamA.teamId)?.name : activeGame.teamA.type}
-              </div>
-              <div className="text-sport-green font-bold my-1">VS</div>
-              <div className="font-semibold">
+                </Text>
+                <Text strong style={{ fontSize: '12px', color: '#16a34a', fontWeight: 700, display: 'block', margin: '4px 0' }}>
+                  VS
+                </Text>
+                <Text strong style={{ fontSize: '14px', display: 'block' }}>
                 {activeGame.teamB.type === 'Team' ? tournament.teams.find(t => t.id === activeGame.teamB.teamId)?.name : activeGame.teamB.type}
+                </Text>
               </div>
-            </div>
-          </div>
+            </Card>
         ) : null}
       </DragOverlay>
     </DndContext>
+    
+    {/* Help Modal */}
+    <Modal
+      title={
+        <Title level={3} style={{ margin: 0, fontWeight: 700, color: '#f97316' }}>
+          Courts Helpdesk
+        </Title>
+      }
+      open={helpModalVisible}
+      onCancel={() => setHelpModalVisible(false)}
+      footer={[
+        <Button key="close" type="primary" onClick={() => setHelpModalVisible(false)}>
+          Got it!
+        </Button>
+      ]}
+      width={700}
+    >
+      <Space direction="vertical" size={20} style={{ width: '100%' }}>
+        <div>
+          <Title level={4} style={{ marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>
+            Assigning Games to Courts
+          </Title>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+            • <strong>Auto-Assign Games:</strong> Click the "Auto-Assign Games" button to automatically assign available games to available courts. This will fill courts with eligible games from the earliest rounds.
+          </Text>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+            • <strong>Drag and Drop:</strong> Drag games from the "Available Games" section and drop them onto a court card to assign them manually.
+          </Text>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block' }}>
+            • <strong>Edit Button:</strong> Click the "Edit" button on a court card to select a game from a dropdown list of available games.
+          </Text>
+        </div>
+
+        <div>
+          <Title level={4} style={{ marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>
+            Starting and Managing Games
+          </Title>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+            • <strong>Start:</strong> Click "Start" on a court card to begin a game. This initiates the warmup phase, followed by game time, and then flex time.
+          </Text>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+            • <strong>Pause/Resume:</strong> Use "Pause" to temporarily stop the game timer, and "Resume" to continue. The timer will account for paused time.
+          </Text>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+            • <strong>Next:</strong> Click "Next" to skip to the next phase (e.g., from warmup to game time, or from game time to flex time).
+          </Text>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+            • <strong>End:</strong> Click "End" when the game is finished to enter the final score and determine the winner.
+          </Text>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block' }}>
+            • <strong>Restart:</strong> Use "Restart" to reset a game back to the beginning if needed.
+          </Text>
+        </div>
+
+        <div>
+          <Title level={4} style={{ marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>
+            Bulk Actions
+          </Title>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+            • <strong>Start All Games:</strong> Starts all games that are currently assigned to courts and in "Queued" status.
+          </Text>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+            • <strong>Pause All / Resume All:</strong> Pauses or resumes all active games across all courts.
+          </Text>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+            • <strong>Restart All Games:</strong> Resets all active games back to the beginning.
+          </Text>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block' }}>
+            • <strong>Clear All Courts:</strong> Removes all queued games from courts, returning them to the available games pool. Games in progress will not be cleared.
+          </Text>
+        </div>
+
+        <div>
+          <Title level={4} style={{ marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>
+            Referees
+          </Title>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '8px' }}>
+            • <strong>Auto-Assign Referees:</strong> Automatically assigns available referees to games that need them, based on your tournament settings.
+          </Text>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block' }}>
+            • <strong>Manual Assignment:</strong> For queued games, you can manually select referees from the dropdown on each court card.
+          </Text>
+        </div>
+
+        <div>
+          <Title level={4} style={{ marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>
+            Tips
+          </Title>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '4px' }}>
+            • Games must be properly paired in the Bracket Editor before they appear as available games
+          </Text>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '4px' }}>
+            • Only games with green borders in the Bracket Editor will show up here
+          </Text>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block', marginBottom: '4px' }}>
+            • Use "Auto-Assign Games" to quickly fill all available courts
+          </Text>
+          <Text style={{ fontSize: '14px', lineHeight: '1.8', display: 'block' }}>
+            • The timer automatically transitions between phases (warmup → game → flex → overtime)
+          </Text>
+        </div>
+      </Space>
+    </Modal>
+    </Layout>
   );
 }

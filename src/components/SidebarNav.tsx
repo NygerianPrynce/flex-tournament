@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useSport } from '../hooks/useSport';
+import { useTournamentStore } from '../store/tournamentStore';
 
 interface NavItem {
   path: string;
@@ -8,7 +9,7 @@ interface NavItem {
   getLabel?: (venueTerm: string) => string;
 }
 
-const navItems: NavItem[] = [
+const allNavItems: NavItem[] = [
   { path: '/tournament/bracket', label: 'Bracket' },
   { path: '/tournament/courts', label: 'Courts', getLabel: (venueTermPlural) => venueTermPlural },
   { path: '/tournament/teams', label: 'Teams' },
@@ -21,17 +22,63 @@ const navItems: NavItem[] = [
 export function SidebarNav() {
   const location = useLocation();
   const { venueTermPlural } = useSport();
+  const tournament = useTournamentStore(state => state.tournament);
+  
+  // Filter out referees tab if no referees were assigned
+  const navItems = allNavItems.filter(item => {
+    if (item.path === '/tournament/refs') {
+      return tournament && tournament.refs && tournament.refs.length > 0;
+    }
+    return true;
+  });
   
   return (
-    <div className="w-64 bg-light-off-white shadow-lg min-h-screen p-6 border-r-2 border-light-warm-gray">
-      <div className="mb-8">
-        <h1 className="text-2xl font-heading uppercase tracking-wide-heading text-accent-orange" style={{ fontStyle: 'oblique' }}>
-          bracketooski
-        </h1>
-        <div className="divider-orange mt-2"></div>
+    <div style={{
+      width: '256px',
+      background: '#f9fafb',
+      minHeight: '100vh',
+      padding: '24px',
+      borderRight: '1px solid #e5e7eb',
+      fontFamily: 'Poppins, sans-serif',
+    }}>
+      {/* Branding Section */}
+      <div style={{ marginBottom: '32px', marginLeft: '-8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <img 
+            src="/favicon.png" 
+            alt="Bracketooski Logo" 
+            style={{ width: '32px', height: '32px' }}
+          />
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0' }}>
+            <span style={{
+              fontSize: '20px',
+              fontWeight: 700,
+              color: '#f97316',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+            }}>
+              BRACKET
+            </span>
+            <span style={{
+              fontSize: '20px',
+              fontWeight: 600,
+              color: '#fb923c',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+            }}>
+              OOSKI
+            </span>
+          </div>
+        </div>
+        <div style={{
+          height: '2px',
+          background: '#f97316',
+          width: 'calc(100% + 8px)',
+        }} />
       </div>
       
-      <nav className="space-y-1">
+      {/* Navigation Items */}
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
         {navItems.map((item) => {
           const isActive = location.pathname === item.path || 
             (item.path === '/tournament/courts' && location.pathname === '/tournament');
@@ -42,28 +89,72 @@ export function SidebarNav() {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center space-x-3 px-4 py-3 transition-all duration-200 ${
-                isActive
-                  ? 'bg-accent-orange text-dark-near-black font-heading uppercase tracking-wide-heading'
-                  : 'text-dark-charcoal hover:text-accent-orange hover:bg-light-warm-gray font-body'
-              }`}
-              style={isActive ? { transform: 'skewX(-3deg)' } : {}}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '12px 16px',
+                textDecoration: 'none',
+                transition: 'all 0.2s ease',
+                borderRadius: '0',
+                backgroundColor: isActive ? '#f97316' : 'transparent',
+                color: isActive ? '#fff' : '#1f2937',
+                fontWeight: isActive ? 600 : 500,
+                fontSize: '14px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.backgroundColor = '#f3f4f6';
+                  e.currentTarget.style.color = '#f97316';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#1f2937';
+                }
+              }}
             >
-              <span style={isActive ? { transform: 'skewX(3deg)' } : {}} className="font-medium">{displayLabel.toUpperCase()}</span>
+              {displayLabel.toUpperCase()}
             </Link>
           );
         })}
       </nav>
       
-      <div className="mt-8 pt-8 border-t-2 border-light-warm-gray">
+      {/* Exit Tournament Section */}
+      <div style={{
+        marginTop: '32px',
+        paddingTop: '24px',
+        borderTop: '1px solid #e5e7eb',
+      }}>
         <Link
           to="/"
-          className="flex items-center space-x-3 px-4 py-3 text-dark-charcoal hover:text-accent-orange transition-colors font-body"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '12px 16px',
+            textDecoration: 'none',
+            transition: 'all 0.2s ease',
+            borderRadius: '0',
+            color: '#1f2937',
+            fontWeight: 500,
+            fontSize: '14px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#f3f4f6';
+            e.currentTarget.style.color = '#f97316';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = '#1f2937';
+          }}
         >
-          <span className="font-medium">EXIT TOURNAMENT</span>
+          EXIT TOURNAMENT
         </Link>
       </div>
     </div>
   );
 }
-

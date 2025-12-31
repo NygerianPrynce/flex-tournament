@@ -4,6 +4,10 @@ import { formatTime, calculateRemainingTime } from '../lib/timer';
 import { useTournamentStore } from '../store/tournamentStore';
 import { GameResultModal } from './GameResultModal';
 import { OpenSlotModal } from './OpenSlotModal';
+import { getRoundNameFromGame, getLosersRoundName } from '../lib/roundNames';
+import { Card, Typography, Button, Tag, Space, Select } from 'antd';
+
+const { Title, Text } = Typography;
 
 interface CourtCardProps {
   court: Court;
@@ -11,10 +15,11 @@ interface CourtCardProps {
   onEdit?: () => void;
   onRemove?: () => void;
   viewerMode?: boolean;
+  tournamentComplete?: boolean;
 }
 
-export function CourtCard({ court, game, onEdit, onRemove, viewerMode = false }: CourtCardProps) {
-  const { tournament, finishGame, startGame, updateGame, addTeam, skipStage, assignRefToGame, getAllGames } = useTournamentStore();
+export function CourtCard({ court, game, onEdit, onRemove, viewerMode = false, tournamentComplete = false }: CourtCardProps) {
+  const { tournament, finishGame, startGame, updateGame, addTeam, skipStage, assignRefToGame, assignRefsToGame, getAllGames } = useTournamentStore();
   const [showResultModal, setShowResultModal] = useState(false);
   const [showOpenSlotModal, setShowOpenSlotModal] = useState(false);
   const teams = tournament?.teams || [];
@@ -28,26 +33,35 @@ export function CourtCard({ court, game, onEdit, onRemove, viewerMode = false }:
     return 'TBD';
   };
   
+  const getRefNames = () => {
+    if (!game || !tournament) return [];
+    const refIds = game.refIds || (game.refId ? [game.refId] : []);
+    return refIds.map(id => {
+      const ref = tournament.refs.find(r => r.id === id);
+      return ref?.name || 'Unknown';
+    });
+  };
+  
   const getRefName = () => {
-    if (!game?.refId || !tournament) return 'Unassigned';
-    const ref = tournament.refs.find(r => r.id === game.refId);
-    return ref?.name || 'Unassigned';
+    const names = getRefNames();
+    if (names.length === 0) return 'Unassigned';
+    return names.join(', ');
   };
   
   const getStatusColor = (status: Game['status']) => {
     switch (status) {
       case 'Warmup':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'warning';
       case 'Live':
-        return 'bg-green-100 text-green-800';
+        return 'success';
       case 'Flex':
-        return 'bg-blue-100 text-blue-800';
+        return 'processing';
       case 'Finished':
-        return 'bg-gray-100 text-gray-800';
+        return 'default';
       case 'Paused':
-        return 'bg-orange-100 text-orange-800';
+        return 'error';
       default:
-        return 'bg-gray-100 text-gray-600';
+        return 'default';
     }
   };
   
@@ -60,6 +74,39 @@ export function CourtCard({ court, game, onEdit, onRemove, viewerMode = false }:
   const currentPhase = game?.timers.currentPhase || 'idle';
   
   const isByeGame = game && (game.teamA.type === 'BYE' || game.teamB.type === 'BYE');
+  
+  // Get round name with bracket type
+  const getRoundNameWithBracket = () => {
+    if (!game || !tournament?.bracket) return '';
+    
+    if (game.bracketType === 'Final') {
+      // Check if it's the reset game
+      if (game.id === 'grand-final-reset') {
+        return 'Grand Final Reset';
+      }
+      return 'Grand Final';
+    }
+    
+    const isDoubleElimination = tournament.settings.includeLosersBracket;
+    const bracketType = game.bracketType === 'L' ? 'Losers Bracket' : (isDoubleElimination ? 'Winners Bracket' : '');
+    let roundName: string;
+    
+    if (game.bracketType === 'L' && tournament.bracket.losers) {
+      // For losers bracket, use losers-specific round naming
+      const roundIndex = game.round - 1;
+      if (roundIndex >= 0 && roundIndex < tournament.bracket.losers.length) {
+        const gamesInRound = tournament.bracket.losers[roundIndex]?.length || 0;
+        roundName = getLosersRoundName(roundIndex, tournament.bracket.losers.length, gamesInRound);
+      } else {
+        roundName = `Round ${game.round}`;
+      }
+    } else {
+      // For winners bracket
+      roundName = getRoundNameFromGame(game.round, tournament.bracket.winners);
+    }
+    
+    return bracketType ? `${bracketType} - ${roundName}` : roundName;
+  };
   
   const handleStart = () => {
     if (!game || !tournament) return;
@@ -145,19 +192,33 @@ export function CourtCard({ court, game, onEdit, onRemove, viewerMode = false }:
   if (!tournament) {
     // Fallback rendering if tournament is not loaded yet
     return (
-      <div className="card border-2 border-gray-200 bg-light-off-white transition-colors">
-        <div className="flex justify-between items-start mb-3 sm:mb-4">
-          <h3
-            className="text-base sm:text-lg md:text-xl font-heading uppercase tracking-wide-heading text-accent-orange"
-            style={{ fontStyle: 'oblique' }}
-          >
+      <Card
+        style={{
+          borderRadius: '16px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+          border: '1px solid #e5e7eb',
+        }}
+        bodyStyle={{ padding: '20px' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
+          <Title level={4} style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#f97316' }}>
             {court.name}
-          </h3>
+          </Title>
         </div>
-        <div className="h-32 sm:h-36 md:h-40 mb-3 sm:mb-4 flex items-center justify-center bg-light-warm-gray rounded-lg">
-          <div className="text-xs sm:text-sm text-dark-charcoal font-body">No game assigned</div>
+        <div style={{ 
+          height: '160px', 
+          marginBottom: '16px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          background: '#f3f4f6', 
+          borderRadius: '12px' 
+        }}>
+          {!tournamentComplete && (
+            <Text type="secondary" style={{ fontSize: '14px' }}>No game assigned</Text>
+          )}
         </div>
-      </div>
+      </Card>
     );
   }
   
@@ -165,226 +226,391 @@ export function CourtCard({ court, game, onEdit, onRemove, viewerMode = false }:
 
   return (
     <>
-      <div className="card border-2 border-gray-200 bg-light-off-white transition-colors">
-        <div className="flex justify-between items-start mb-3 md:mb-4">
-          <h3
-            className="text-lg md:text-xl font-heading uppercase tracking-wide-heading text-accent-orange"
-            style={{ fontStyle: 'oblique' }}
-          >
-            {court.name}
-          </h3>
+      <Card
+        style={{
+          borderRadius: '16px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+          border: '1px solid #e5e7eb',
+          transition: 'all 0.2s ease',
+        }}
+        bodyStyle={{ padding: '20px' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
+          <div style={{ flex: 1 }}>
+            <Title level={4} style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#f97316' }}>
+              {court.name}
+            </Title>
+            {game && (
+              <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: '4px', fontWeight: 500 }}>
+                {getRoundNameWithBracket()}
+              </Text>
+            )}
+          </div>
           {game && (
-            <span className={`badge ${getStatusColor(game.status)} text-xs md:text-sm`}>
+            <Tag color={getStatusColor(game.status)} style={{ margin: 0, fontSize: '12px', fontWeight: 600 }}>
               {game.timers.currentPhase === 'overtime' ? 'Overrun' : game.status}
-            </span>
+            </Tag>
           )}
         </div>
 
         <div
-          className={
-            isBasketball
-              ? 'court-visual-basketball h-32 md:h-40 mb-3 md:mb-4 flex items-center justify-center relative'
-              : 'h-32 md:h-40 mb-3 md:mb-4 flex items-center justify-center bg-light-warm-gray rounded-lg relative'
-          }
+          style={{
+            height: '160px',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#f3f4f6',
+            borderRadius: '12px',
+            position: 'relative',
+            border: '1px solid #e5e7eb',
+          }}
         >
           {game ? (
-            <div className="text-center relative z-10 bg-white/80 backdrop-blur-sm px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg shadow-sm">
-              <div className="text-sm sm:text-base md:text-lg font-semibold text-dark-near-black text-center truncate">{getTeamName(game.teamA)}</div>
-              <div
-                className="text-base sm:text-lg md:text-xl lg:text-2xl font-heading uppercase tracking-wide-heading text-accent-orange my-0.5 sm:my-1"
-                style={{ fontStyle: 'oblique' }}
-              >
+            <div style={{
+              textAlign: 'center',
+              position: 'relative',
+              zIndex: 10,
+              background: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(8px)',
+              padding: '12px 16px',
+              borderRadius: '12px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              minWidth: '200px',
+            }}>
+              <Text strong style={{ fontSize: '16px', display: 'block', marginBottom: '8px' }}>
+                {getTeamName(game.teamA)}
+              </Text>
+              <Text strong style={{ 
+                fontSize: '18px', 
+                color: '#f97316', 
+                fontWeight: 700, 
+                display: 'block', 
+                margin: '4px 0' 
+              }}>
                 VS
-              </div>
-              <div className="text-sm sm:text-base md:text-lg font-semibold text-dark-near-black text-center truncate">{getTeamName(game.teamB)}</div>
+              </Text>
+              <Text strong style={{ fontSize: '16px', display: 'block', marginTop: '8px' }}>
+                {getTeamName(game.teamB)}
+              </Text>
             </div>
           ) : (
-            <div className="text-xs md:text-sm text-dark-charcoal font-body relative z-10">No game assigned</div>
+            !tournamentComplete && (
+              <Text type="secondary" style={{ fontSize: '14px', position: 'relative', zIndex: 10 }}>
+                No game assigned
+              </Text>
+            )
           )}
         </div>
 
         {game ? (
-          <div className="space-y-3 md:space-y-4">
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
             {!isByeGame && game.status !== 'Queued' && game.status !== 'Finished' && (
-              <div className="text-center">
-                <div className="text-xs md:text-sm text-gray-600 mb-1">
+              <div style={{ textAlign: 'center', padding: '12px', background: '#f9fafb', borderRadius: '12px' }}>
+                <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>
                   {currentPhase === 'warmup' && 'Warmup'}
                   {currentPhase === 'game' && 'Game Time'}
                   {currentPhase === 'flex' && 'Flex Time'}
                   {currentPhase === 'overtime' && 'Overrun'}
-                </div>
-                <div className={`text-xl sm:text-2xl md:text-3xl font-bold ${currentPhase === 'overtime' ? 'text-red-600' : 'text-sport-orange'}`}>
+                </Text>
+                <Text style={{ 
+                  fontSize: '32px', 
+                  fontWeight: 700, 
+                  color: currentPhase === 'overtime' ? '#dc2626' : '#f97316',
+                  display: 'block',
+                }}>
                   {currentPhase === 'overtime' ? (
                     `+${formatTime(remainingTime)}`
                   ) : (
                     formatTime(remainingTime)
                   )}
-                </div>
+                </Text>
               </div>
             )}
             
             {game.result && (
-              <div className="text-center bg-gray-50 rounded p-1.5 sm:p-2">
-                <div className="text-xs sm:text-sm text-gray-600">Final Score</div>
-                <div className="font-semibold text-sm sm:text-base">
-                  <div className="truncate">{getTeamName(game.teamA)} {game.result.scoreA}</div>
-                  <div className="text-accent-orange my-0.5">-</div>
-                  <div className="truncate">{game.result.scoreB} {getTeamName(game.teamB)}</div>
+              <div style={{ 
+                textAlign: 'center', 
+                background: '#f3f4f6', 
+                borderRadius: '12px', 
+                padding: '12px' 
+              }}>
+                <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>
+                  Final Score
+                </Text>
+                <div>
+                  <Text strong style={{ fontSize: '14px', display: 'block' }}>
+                    {getTeamName(game.teamA)} {game.result.scoreA}
+                  </Text>
+                  <Text strong style={{ fontSize: '14px', color: '#f97316', display: 'block', margin: '4px 0' }}>
+                    -
+                  </Text>
+                  <Text strong style={{ fontSize: '14px', display: 'block' }}>
+                    {game.result.scoreB} {getTeamName(game.teamB)}
+                  </Text>
                 </div>
                 {game.result.winnerId && (
-                  <div className="text-xs text-green-600 mt-1 truncate">
+                  <Text style={{ 
+                    fontSize: '12px', 
+                    color: '#16a34a', 
+                    display: 'block', 
+                    marginTop: '8px',
+                    fontWeight: 600,
+                  }}>
                     Winner: {teams.find(t => t.id === game.result!.winnerId)?.name || getTeamName(
                       game.teamA.type === 'Team' && game.teamA.teamId === game.result.winnerId ? game.teamA :
                       game.teamB.type === 'Team' && game.teamB.teamId === game.result.winnerId ? game.teamB :
                       game.teamA
                     )}
-                  </div>
+                  </Text>
                 )}
               </div>
             )}
             
             {tournament && tournament.refs.length > 0 && (tournament.settings.useRefs !== false) && 
              !isByeGame && (
-              <div className="text-sm text-gray-600 mb-2">
-                <div className="flex items-center gap-2">
-                  <span>Ref:</span>
-                  {game && game.status === 'Queued' && !viewerMode ? (
-                    <select
-                      value={game.refId || ''}
-                      onChange={(e) => {
-                        assignRefToGame(game.id, e.target.value || undefined);
-                      }}
-                      className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-sport-orange"
-                    >
-                      <option value="">Unassigned</option>
-                      {tournament.refs
-                        .filter(ref => {
-                          // Only show available refs (not in use and not paused)
-                          const allGames = getAllGames();
-                          // Check if ref is assigned to any active game (started games)
-                          const inActiveGame = allGames.some(g => 
-                            g.refId === ref.id && 
-                            g.id !== game.id && // Exclude current game
-                            (g.status === 'Warmup' || g.status === 'Live' || g.status === 'Flex' || g.status === 'Paused')
-                          );
-                          const available = ref.available !== false;
-                          return !inActiveGame && available;
-                        })
-                        .map(ref => (
-                          <option key={ref.id} value={ref.id}>
-                            {ref.name}
-                          </option>
-                        ))}
-                    </select>
-                  ) : (
-                    <span className={game?.refId ? '' : 'text-red-600 font-semibold'}>{getRefName()}</span>
-                  )}
-                </div>
+              <div>
+                <Text style={{ fontSize: '13px', color: '#6b7280', display: 'block', marginBottom: '8px' }}>
+                  Ref{(() => {
+                    const refereesPerGame = tournament.settings.refereesPerGame ?? 0;
+                    return refereesPerGame > 1 ? 's' : '';
+                  })()}:
+                </Text>
+                {game && game.status === 'Queued' && !viewerMode ? (
+                  <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                    {(() => {
+                      const refereesPerGame = tournament.settings.refereesPerGame ?? 0;
+                      const currentRefIds = game.refIds || (game.refId ? [game.refId] : []);
+                      const allGames = getAllGames();
+                      
+                      // Get available refs (not in active games and not paused)
+                      const activeRefIds = new Set<string>();
+                      allGames.forEach(g => {
+                        if (g.id !== game.id && (g.status === 'Warmup' || g.status === 'Live' || g.status === 'Flex' || g.status === 'Paused')) {
+                          const refIds = g.refIds || (g.refId ? [g.refId] : []);
+                          refIds.forEach(id => activeRefIds.add(id));
+                        }
+                      });
+                      
+                      const availableRefs = tournament.refs.filter(r => 
+                        !activeRefIds.has(r.id) && 
+                        (r.available !== false)
+                      );
+                      
+                      return Array.from({ length: refereesPerGame }, (_, index) => {
+                        const currentRefId = currentRefIds[index];
+                        return (
+                          <Select
+                            key={index}
+                            value={currentRefId || undefined}
+                            onChange={(value) => {
+                              const newRefIds = [...currentRefIds];
+                              if (value) {
+                                newRefIds[index] = value;
+                              } else {
+                                newRefIds.splice(index, 1);
+                              }
+                              // Remove duplicates and empty values
+                              const uniqueRefIds = Array.from(new Set(newRefIds.filter(id => id)));
+                              assignRefsToGame(game.id, uniqueRefIds);
+                            }}
+                            placeholder="Unassigned"
+                            style={{ width: '100%' }}
+                            size="small"
+                          >
+                            {availableRefs
+                              .filter(ref => {
+                                // Don't show refs already assigned to this game (except at this index)
+                                const alreadyAssigned = currentRefIds.some((id, idx) => id === ref.id && idx !== index);
+                                return !alreadyAssigned;
+                              })
+                              .map(ref => (
+                                <Select.Option key={ref.id} value={ref.id}>
+                                  {ref.name}
+                                </Select.Option>
+                              ))}
+                          </Select>
+                        );
+                      });
+                    })()}
+                  </Space>
+                ) : (
+                  <Text style={{
+                    fontSize: '13px',
+                    color: (() => {
+                      const currentRefIds = game?.refIds || (game?.refId ? [game.refId] : []);
+                      const refereesPerGame = tournament.settings.refereesPerGame ?? 0;
+                      const isComplete = currentRefIds.length >= refereesPerGame;
+                      return isComplete ? '#6b7280' : '#dc2626';
+                    })(),
+                    fontWeight: (() => {
+                      const currentRefIds = game?.refIds || (game?.refId ? [game.refId] : []);
+                      const refereesPerGame = tournament.settings.refereesPerGame ?? 0;
+                      const isComplete = currentRefIds.length >= refereesPerGame;
+                      return isComplete ? 400 : 600;
+                    })(),
+                  }}>
+                    {getRefName() || 'Unassigned'}
+                  </Text>
+                )}
               </div>
             )}
             
-            {!viewerMode && (
-              <div className="flex gap-1 flex-wrap w-full">
-              {game.status === 'Queued' && (
-                <>
-                  <button
-                    className="btn-primary flex-1 min-w-[60px]"
-                    onClick={handleStart}
-                  >
-                    Start
-                  </button>
-                  {onEdit && (
-                    <button
-                      className="btn-secondary flex-1 min-w-[50px]"
-                      onClick={onEdit}
-                    >
-                      Edit
-                    </button>
+            {!viewerMode && !tournamentComplete && (
+              <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  {game.status === 'Queued' && (
+                    <Space size={8} style={{ width: '100%', justifyContent: 'center' }} wrap>
+                      <Button
+                        type="primary"
+                        onClick={handleStart}
+                        style={{
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          height: '40px',
+                          fontWeight: 600,
+                          background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                          border: 'none',
+                          boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)',
+                        }}
+                      >
+                        Start
+                      </Button>
+                      {onEdit && (
+                        <Button
+                          onClick={onEdit}
+                          style={{
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            height: '40px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Edit
+                        </Button>
+                      )}
+                      {onRemove && (
+                        <Button
+                          danger
+                          onClick={onRemove}
+                          style={{
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            height: '40px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </Space>
                   )}
-                  {onRemove && (
-                    <button
-                      className="btn-secondary flex-1 min-w-[60px] text-red-600 hover:bg-red-50"
-                      onClick={onRemove}
-                    >
-                      Remove
-                    </button>
+                  {(game.status === 'Warmup' || game.status === 'Live' || game.status === 'Flex') && (
+                    <Space size={8} style={{ width: '100%', justifyContent: 'center' }} wrap>
+                      <Button
+                        onClick={() => useTournamentStore.getState().pauseGame(game.id)}
+                        style={{
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          height: '40px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        Pause
+                      </Button>
+                      {currentPhase !== 'overtime' && !(currentPhase === 'game' && tournament.settings.flexMinutes === 0) && (
+                        <Button
+                          onClick={() => skipStage(game.id)}
+                          style={{
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            height: '40px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Next
+                        </Button>
+                      )}
+                      <Button
+                        type="primary"
+                        onClick={handleFinish}
+                        style={{
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          height: '40px',
+                          fontWeight: 600,
+                          background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                          border: 'none',
+                          boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)',
+                        }}
+                      >
+                        End
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          if (!tournament) return;
+                          // Reset game to Queued status with fresh timers (same state as when first assigned to court)
+                          updateGame(game.id, {
+                            status: 'Queued',
+                            timers: {
+                              warmupRemaining: tournament.settings.warmupMinutes * 60,
+                              gameRemaining: tournament.settings.gameLengthMinutes * 60,
+                              flexRemaining: tournament.settings.flexMinutes * 60,
+                              currentPhase: 'idle',
+                              startedAt: undefined,
+                              pausedAt: undefined,
+                              totalPausedTime: 0,
+                            },
+                          });
+                        }}
+                        style={{
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          height: '40px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        Restart
+                      </Button>
+                    </Space>
                   )}
-                </>
-              )}
-              {(game.status === 'Warmup' || game.status === 'Live' || game.status === 'Flex') && (
-                <>
-                  <button
-                    className="btn-secondary flex-1 min-w-[50px]"
-                    onClick={() => useTournamentStore.getState().pauseGame(game.id)}
-                  >
-                    Pause
-                  </button>
-                  {currentPhase !== 'overtime' && !(currentPhase === 'game' && tournament.settings.flexMinutes === 0) && (
-                    <button
-                      className="btn-secondary flex-1 min-w-[55px]"
-                      onClick={() => skipStage(game.id)}
-                    >
-                      Skip
-                    </button>
-                  )}
-                  <button
-                    className="btn-primary flex-1 min-w-[50px]"
-                    onClick={handleFinish}
-                  >
-                    End
-                  </button>
-                  <button
-                    className="btn-secondary flex-1 min-w-[60px]"
-                    onClick={() => {
-                      if (!tournament) return;
-                      // Reset game to Queued status with fresh timers (same state as when first assigned to court)
-                      updateGame(game.id, {
-                        status: 'Queued',
-                        timers: {
-                          warmupRemaining: tournament.settings.warmupMinutes * 60,
-                          gameRemaining: tournament.settings.gameLengthMinutes * 60,
-                          flexRemaining: tournament.settings.flexMinutes * 60,
-                          currentPhase: 'idle',
-                          startedAt: undefined,
+                {game.status === 'Paused' && (
+                  <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                    <Button
+                      type="primary"
+                      onClick={() => {
+                        const now = Date.now();
+                        const pausedTime = game.timers.pausedAt ? now - game.timers.pausedAt : 0;
+                        useTournamentStore.getState().updateGameTimer(game.id, {
                           pausedAt: undefined,
-                          totalPausedTime: 0,
-                        },
-                      });
-                    }}
-                  >
-                    Restart
-                  </button>
-                </>
-              )}
-              {game.status === 'Paused' && (
-                <button
-                  className="btn-primary flex-1 min-w-[70px]"
-                  onClick={() => {
-                    const now = Date.now();
-                    const pausedTime = game.timers.pausedAt ? now - game.timers.pausedAt : 0;
-                    useTournamentStore.getState().updateGameTimer(game.id, {
-                      pausedAt: undefined,
-                      totalPausedTime: game.timers.totalPausedTime + pausedTime,
-                    });
-                    useTournamentStore.getState().updateGame(game.id, {
-                      status: game.timers.currentPhase === 'warmup' ? 'Warmup' :
-                              game.timers.currentPhase === 'game' ? 'Live' : 
-                              game.timers.currentPhase === 'overtime' ? 'Flex' : 'Flex',
-                    });
-                  }}
-                >
-                  Resume
-                </button>
-              )}
+                          totalPausedTime: game.timers.totalPausedTime + pausedTime,
+                        });
+                        useTournamentStore.getState().updateGame(game.id, {
+                          status: game.timers.currentPhase === 'warmup' ? 'Warmup' :
+                                  game.timers.currentPhase === 'game' ? 'Live' : 
+                                  game.timers.currentPhase === 'overtime' ? 'Flex' : 'Flex',
+                        });
+                      }}
+                      style={{
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        height: '40px',
+                        fontWeight: 600,
+                        background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                        border: 'none',
+                        boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)',
+                      }}
+                    >
+                      Resume
+                    </Button>
+                  </div>
+                )}
+                </Space>
               </div>
             )}
-          </div>
-        ) : (
-          <div className="text-center text-gray-400 py-8">
-            No game assigned
-          </div>
-        )}
-      </div>
+          </Space>
+        ) : null}
+      </Card>
       
       {!viewerMode && showResultModal && game && (
         <GameResultModal
@@ -392,6 +618,7 @@ export function CourtCard({ court, game, onEdit, onRemove, viewerMode = false }:
           teams={teams}
           onClose={() => setShowResultModal(false)}
           onSave={handleResultSave}
+          scoringRequired={tournament?.settings.scoringRequired !== false}
         />
       )}
       
