@@ -6,7 +6,7 @@ import { CourtCard } from '../components/CourtCard';
 import { useTournamentStore } from '../store/tournamentStore';
 import type { Game, Tournament } from '../types';
 import { updateGameTimers } from '../lib/timer';
-import { getRoundNameFromGame, getRoundName, getLosersRoundName } from '../lib/roundNames';
+import { getRoundNameFromGame, getLosersRoundName } from '../lib/roundNames';
 import { useSport } from '../hooks/useSport';
 import {
   Layout,
@@ -596,7 +596,7 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
                   <Button
                   type="primary"
                   onClick={autoAssignGames}
-                  disabled={tournamentComplete === true}
+                  disabled={!!tournamentComplete}
                   style={{
                     borderRadius: '8px',
                     fontSize: '12px',
@@ -815,8 +815,8 @@ export function TournamentCourts({ tournament: propTournament, viewerMode = fals
                         unassignGameFromCourt(game.id);
                       }
                     }}
-                    viewerMode={viewerMode || tournamentComplete}
-                    tournamentComplete={tournamentComplete}
+                    viewerMode={!!viewerMode || !!tournamentComplete}
+                    tournamentComplete={!!tournamentComplete}
                   />
                   
                   {/* Edit Court Dropdown - Hidden in viewer mode */}

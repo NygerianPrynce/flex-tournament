@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { StepWizard } from '../components/StepWizard';
 import { UploadDropzone } from '../components/UploadDropzone';
 import { EditableList } from '../components/EditableList';
 import type { Team, Ref, TournamentSettings, SeedingMode, SeedingType, Court } from '../types';
@@ -33,12 +32,10 @@ import {
 import {
   ArrowLeftOutlined,
   ArrowRightOutlined,
-  TrophyOutlined,
 } from '@ant-design/icons';
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
-const { Step } = Steps;
 
 const STEPS = [
   { id: 'format', label: 'Format' },

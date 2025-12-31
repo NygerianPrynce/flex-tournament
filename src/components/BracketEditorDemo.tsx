@@ -56,7 +56,7 @@ export function BracketEditorDemo() {
   const [dragOverSlot, setDragOverSlot] = useState<{ gameId: string; slot: 'A' | 'B' } | null>(null);
   const [editingSlot, setEditingSlot] = useState<{ gameId: string; slot: 'A' | 'B' } | null>(null);
 
-  const getTeamName = (slot: DemoGame['teamA'], game: DemoGame) => {
+  const getTeamName = (slot: DemoGame['teamA']) => {
     if (slot.type === 'Team' && slot.teamId) {
       const team = teams.find(t => t.id === slot.teamId);
       return team?.name || 'Unknown';
@@ -133,7 +133,7 @@ export function BracketEditorDemo() {
     setDragOverSlot(null);
   };
 
-  const handleSlotClick = (game: DemoGame, slot: 'A' | 'B', currentSlot: DemoGame['teamA']) => {
+  const handleSlotClick = (game: DemoGame, slot: 'A' | 'B') => {
     if (game.status === 'Finished') return;
     setEditingSlot({ gameId: game.id, slot });
   };
@@ -345,7 +345,7 @@ export function BracketEditorDemo() {
                           onDragOver={(e) => game.status !== 'Finished' && handleDragOver(e, game.id, 'A')}
                           onDragLeave={handleDragLeave}
                           onDrop={() => game.status !== 'Finished' && handleDrop(game, 'A')}
-                          onClick={() => game.status !== 'Finished' && handleSlotClick(game, 'A', game.teamA)}
+                          onClick={() => game.status !== 'Finished' && handleSlotClick(game, 'A')}
                           style={{
                             cursor: game.status === 'Finished' ? 'not-allowed' : 'pointer',
                             opacity: game.status === 'Finished' ? 0.75 : 1,
@@ -362,7 +362,7 @@ export function BracketEditorDemo() {
                           }}
                         >
                           <Text strong style={{ fontSize: '14px', display: 'block' }}>
-                            {getTeamName(game.teamA, game)}
+                            {getTeamName(game.teamA)}
                           </Text>
                           {game.status !== 'Finished' && (
                             <Text type="secondary" style={{ fontSize: '10px', display: 'block', marginTop: '4px', color: '#f97316' }}>
@@ -378,7 +378,7 @@ export function BracketEditorDemo() {
                           onDragOver={(e) => game.status !== 'Finished' && handleDragOver(e, game.id, 'B')}
                           onDragLeave={handleDragLeave}
                           onDrop={() => game.status !== 'Finished' && handleDrop(game, 'B')}
-                          onClick={() => game.status !== 'Finished' && handleSlotClick(game, 'B', game.teamB)}
+                          onClick={() => game.status !== 'Finished' && handleSlotClick(game, 'B')}
                           style={{
                             cursor: game.status === 'Finished' ? 'not-allowed' : 'pointer',
                             opacity: game.status === 'Finished' ? 0.75 : 1,
@@ -395,7 +395,7 @@ export function BracketEditorDemo() {
                           }}
                         >
                           <Text strong style={{ fontSize: '14px', display: 'block' }}>
-                            {getTeamName(game.teamB, game)}
+                            {getTeamName(game.teamB)}
                           </Text>
                           {game.status !== 'Finished' && (
                             <Text type="secondary" style={{ fontSize: '10px', display: 'block', marginTop: '4px', color: '#f97316' }}>

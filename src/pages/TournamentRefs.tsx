@@ -337,7 +337,6 @@ export function TournamentRefs() {
             
             <Row gutter={[16, 16]}>
               {tournament.refs.map(ref => {
-                const inUse = isRefInUse(ref.id);
                 const assignedToGame = isRefAssignedToGame(ref.id);
                 const available = isRefAvailable(ref);
                 

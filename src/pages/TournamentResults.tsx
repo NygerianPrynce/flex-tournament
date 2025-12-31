@@ -1,12 +1,11 @@
 import { useTournamentStore } from '../store/tournamentStore';
 import type { Game, Tournament } from '../types';
 import { formatTime } from '../lib/timer';
-import { getRoundNameFromGame, getRoundName, getLosersRoundName } from '../lib/roundNames';
+import { getRoundNameFromGame, getLosersRoundName } from '../lib/roundNames';
 import {
   Layout,
   Typography,
   Card,
-  Tag,
   Space,
   Divider,
 } from 'antd';
@@ -243,6 +242,7 @@ export function TournamentResults({ tournament: propTournament, viewerMode: _vie
     if (tournament.bracket.grandFinal && tournament.bracket.grandFinal.result) {
       // Only use grand final winner if winners bracket champion won (no reset needed)
       const gf = tournament.bracket.grandFinal;
+      if (!gf.result) return null;
       const winnerCameFromLosers = gf.teamB.type === 'Team' && gf.teamB.teamId === gf.result.winnerId;
       
       // If losers bracket champion won, we should have a reset game - don't use grand final winner

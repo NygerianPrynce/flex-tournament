@@ -163,20 +163,6 @@ function placeSeededTeamsBye(teams: Team[], bracketSize: number): GameSlot[] {
   return placeSeededTeamsStandard(teams, bracketSize);
 }
 
-/**
- * Place seeded teams based on seeding type
- */
-function placeSeededTeams(teams: Team[], bracketSize: number, seedingType: SeedingType = 'standard'): GameSlot[] {
-  switch (seedingType) {
-    case 'snake':
-      return placeSeededTeamsSnake(teams, bracketSize);
-    case 'bye':
-      return placeSeededTeamsBye(teams, bracketSize);
-    case 'standard':
-    default:
-      return placeSeededTeamsStandard(teams, bracketSize);
-  }
-}
 
 /**
  * Generate single elimination bracket
@@ -505,10 +491,6 @@ export function getLosersTargetRoundIdxForWinnersRound(winnersRound: number, tot
   return 2 * winnersRound - 3;
 }
 
-function placeIntoOpen(slotOwner: Game, which: 'A' | 'B', teamId: string) {
-  if (which === 'A') slotOwner.teamA = { type: 'Team', teamId };
-  else slotOwner.teamB = { type: 'Team', teamId };
-}
 
 /**
  * Advance a BYE slot to the next round (for BYE vs BYE games)

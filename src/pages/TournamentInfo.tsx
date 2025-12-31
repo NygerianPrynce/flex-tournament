@@ -153,7 +153,7 @@ export function TournamentInfo({ tournament: propTournament, viewerMode: _viewer
                tournament.bracket.grandFinal.result) {
       // Check if winners bracket champion won (no reset needed)
       const gf = tournament.bracket.grandFinal;
-      const winnerCameFromLosers = gf.teamB.type === 'Team' && gf.teamB.teamId === gf.result.winnerId;
+      const winnerCameFromLosers = gf.teamB.type === 'Team' && gf.teamB.teamId === gf.result?.winnerId;
       // Only use grand final as final game if winners bracket champion won (no reset)
       if (!winnerCameFromLosers) {
         finalGame = tournament.bracket.grandFinal;

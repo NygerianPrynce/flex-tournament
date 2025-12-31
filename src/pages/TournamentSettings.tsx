@@ -78,7 +78,7 @@ export function TournamentSettings() {
         }
         // Losers bracket champion won - check if reset is finished
         if (tournament.bracket.grandFinalReset) {
-          return tournament.bracket.grandFinalReset.status === 'Finished' && tournament.bracket.grandFinalReset.result;
+          return tournament.bracket.grandFinalReset.status === 'Finished' && !!tournament.bracket.grandFinalReset.result;
         }
       }
     }
@@ -195,7 +195,7 @@ export function TournamentSettings() {
                     setGameLength('1');
                   }
                 }}
-                disabled={tournamentComplete}
+                disabled={!!tournamentComplete}
                 style={{ width: '100%' }}
                 size="large"
               />
@@ -214,7 +214,7 @@ export function TournamentSettings() {
                     setWarmupTime('0');
                   }
                 }}
-                disabled={tournamentComplete}
+                disabled={!!tournamentComplete}
                 style={{ width: '100%' }}
                 size="large"
               />
@@ -233,7 +233,7 @@ export function TournamentSettings() {
                     setFlexTime('0');
                   }
                 }}
-                disabled={tournamentComplete}
+                disabled={!!tournamentComplete}
                 style={{ width: '100%' }}
                 size="large"
               />
@@ -252,7 +252,7 @@ export function TournamentSettings() {
                     setNumberOfCourts('1');
                   }
                 }}
-                disabled={tournamentComplete}
+                disabled={!!tournamentComplete}
                 style={{ width: '100%' }}
                 size="large"
               />

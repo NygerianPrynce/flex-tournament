@@ -19,7 +19,7 @@ interface CourtCardProps {
 }
 
 export function CourtCard({ court, game, onEdit, onRemove, viewerMode = false, tournamentComplete = false }: CourtCardProps) {
-  const { tournament, finishGame, startGame, updateGame, addTeam, skipStage, assignRefToGame, assignRefsToGame, getAllGames } = useTournamentStore();
+  const { tournament, finishGame, startGame, updateGame, addTeam, skipStage, assignRefsToGame, getAllGames } = useTournamentStore();
   const [showResultModal, setShowResultModal] = useState(false);
   const [showOpenSlotModal, setShowOpenSlotModal] = useState(false);
   const teams = tournament?.teams || [];
@@ -222,8 +222,6 @@ export function CourtCard({ court, game, onEdit, onRemove, viewerMode = false, t
     );
   }
   
-  const isBasketball = tournament.settings.sport === 'basketball';
-
   return (
     <>
       <Card

@@ -207,7 +207,7 @@ export function ViewerMode() {
   return (
     <LandscapeOnly>
       <div className="flex min-h-screen overflow-x-hidden">
-        <ViewerSidebar activeTab={activeTab} onTabChange={setActiveTab} tournamentName={tournament.name} onExit={() => navigate('/')} />
+        <ViewerSidebar activeTab={activeTab} onTabChange={setActiveTab} onExit={() => navigate('/')} />
         <div className="flex-1 bg-light-off-white overflow-x-hidden min-w-0">
           {activeTab === 'bracket' && <TournamentBracket tournament={tournament} viewerMode />}
           {activeTab === 'courts' && <TournamentCourts tournament={tournament} viewerMode />}
@@ -223,12 +223,10 @@ export function ViewerMode() {
 function ViewerSidebar({ 
   activeTab, 
   onTabChange, 
-  tournamentName,
   onExit
 }: { 
   activeTab: string; 
   onTabChange: (tab: 'bracket' | 'courts' | 'teams' | 'results' | 'info') => void;
-  tournamentName: string;
   onExit: () => void;
 }) {
   const { venueTermPlural } = useSport();
